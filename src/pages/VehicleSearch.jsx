@@ -24,7 +24,7 @@ export default function VehicleSearch() {
 
     try {
       const response = await fetch(
-        `http://localhost:5000/api/vehicles/${encodeURIComponent(cleanNumber)}`
+        `http://https://parksafe-backend-s51i.onrender.com/api/vehicles/${encodeURIComponent(cleanNumber)}`
       );
 
       const data = await response.json();

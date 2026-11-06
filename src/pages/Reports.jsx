@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
 
-const API_URL = "http://localhost:5000";
+const API_URL = "http://https://parksafe-backend-s51i.onrender.com";
 
 export default function Reports() {
   const [violationType, setViolationType] = useState("Illegal Parking");

@@ -16,7 +16,7 @@ import Alerts from "./pages/Alerts";
 import Reports from "./pages/Reports";
 import Dashboard from "./pages/Dashboard";
 
-const API_URL = "http://localhost:5000";
+const API_URL = "http://https://parksafe-backend-s51i.onrender.com";
 
 function Icon({ name, size = 20 }) {
   const paths = {
