@@ -19,13 +19,20 @@ if (!JWT_SECRET || !AUTHORITY_CODE || !process.env.DATABASE_URL) {
   process.exit(1);
 }
 
-// Supabase PostgreSQL connection
+// ==========================================
+// SUPABASE POSTGRESQL CONNECTION
+// ==========================================
+
 const db = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false },
   max: 10,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000
+});
+
+db.on("error", (error) => {
+  console.error("Unexpected database error:", error.message);
 });
 
 app.use(cors());
@@ -59,18 +66,20 @@ async function logLogin(req, mobile, success, userId = null) {
 // ==========================================
 
 app.get("/", (req, res) => {
-  res.send("ParkSafe Backend is Running!");
+  res.status(200).send("ParkSafe Backend is Running!");
 });
 
 app.get("/api/health", async (req, res) => {
   try {
     await db.query("SELECT 1");
 
-    res.json({
+    res.status(200).json({
       success: true,
       message: "ParkSafe API and Supabase are connected"
     });
   } catch (error) {
+    console.error("Health check error:", error.message);
+
     res.status(500).json({
       success: false,
       message: "Database connection failed"
@@ -566,7 +575,7 @@ app.patch(
   "/api/reports/:reportId/status",
   ...requireAuthority,
   async (req, res) => {
-    const client = await db.connect();
+    let client;
 
     try {
       const { status } = req.body;
@@ -577,6 +586,8 @@ app.patch(
           message: "Invalid report status"
         });
       }
+
+      client = await db.connect();
 
       await client.query("BEGIN");
 
@@ -617,7 +628,9 @@ app.patch(
         message: "Report status updated successfully"
       });
     } catch (error) {
-      await client.query("ROLLBACK");
+      if (client) {
+        await client.query("ROLLBACK").catch(() => {});
+      }
 
       console.error("Status update error:", error.message);
 
@@ -626,7 +639,9 @@ app.patch(
         message: "Could not update report status"
       });
     } finally {
-      client.release();
+      if (client) {
+        client.release();
+      }
     }
   }
 );
@@ -640,16 +655,18 @@ async function startServer() {
     await db.query("SELECT 1");
 
     console.log("Supabase PostgreSQL connected.");
-    console.log(
-  "REGISTERED ROUTES:",
-  app.router.stack
-    .filter(layer => layer.route)
-    .map(layer => layer.route.path)
-);
 
-    app.listen(PORT, () => {
+    console.log(
+      "REGISTERED ROUTES:",
+      app.router.stack
+        .filter(layer => layer.route)
+        .map(layer => layer.route.path)
+    );
+
+    app.listen(PORT, "0.0.0.0", () => {
       console.log(`ParkSafe Backend running on port ${PORT}`);
     });
+
   } catch (error) {
     console.error("Could not connect to Supabase:", error.message);
     process.exit(1);
