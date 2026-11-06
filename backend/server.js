@@ -640,6 +640,12 @@ async function startServer() {
     await db.query("SELECT 1");
 
     console.log("Supabase PostgreSQL connected.");
+    console.log(
+  "REGISTERED ROUTES:",
+  app.router.stack
+    .filter(layer => layer.route)
+    .map(layer => layer.route.path)
+);
 
     app.listen(PORT, () => {
       console.log(`ParkSafe Backend running on port ${PORT}`);
