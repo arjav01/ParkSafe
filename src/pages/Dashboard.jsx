@@ -1,7 +1,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-const API_URL = "http://https://parksafe-backend-s51i.onrender.com";
+const API_URL = "https://parksafe-backend-s51i.onrender.com";
 
 function Icon({ name, size = 20 }) {
   const paths = {
