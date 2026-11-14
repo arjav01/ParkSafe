@@ -3,6 +3,8 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Html5QrcodeScanner } from "html5-qrcode";
 
+const STORAGE_KEY = "parksafeVehicles";
+
 export default function VehicleSearch() {
   const [number, setNumber] = useState("");
   const [vehicle, setVehicle] = useState(null);
@@ -23,6 +25,30 @@ export default function VehicleSearch() {
     setLoading(true);
 
     try {
+      // First search vehicles saved in this browser.
+      const savedVehicles = JSON.parse(
+        localStorage.getItem(STORAGE_KEY) || "[]"
+      );
+
+      const localMatch = savedVehicles.find(
+        (item) =>
+          item.vehicleNumber?.trim().toUpperCase() === cleanNumber
+      );
+
+      if (localMatch) {
+        setVehicle({
+          vehicleNumber: localMatch.vehicleNumber,
+          vehicleType: localMatch.vehicleType,
+          vehicleModel: localMatch.vehicleModel,
+          ownerReference: "Not available in demo mode",
+          status: "Registered locally",
+          id: localMatch.id,
+        });
+
+        return;
+      }
+
+      // If no local match, check the existing backend.
       const response = await fetch(
         `https://parksafe-backend-s51i.onrender.com/api/vehicles/${encodeURIComponent(cleanNumber)}`
       );
@@ -40,7 +66,8 @@ export default function VehicleSearch() {
         vehicleType: v.vehicle_type,
         vehicleModel: v.vehicle_model,
         ownerReference: v.owner_reference,
-        status: v.status
+        status: v.status,
+        id: v.id,
       });
     } catch (err) {
       setError(
@@ -53,6 +80,30 @@ export default function VehicleSearch() {
     }
   }
 
+  function handleScannedCode(decodedText) {
+    try {
+      const scannedUrl = new URL(decodedText);
+
+      if (
+        scannedUrl.pathname.startsWith("/scan/")
+      ) {
+        navigate(scannedUrl.pathname);
+        return;
+      }
+    } catch {
+      // Not a URL: check whether it is a ParkSafe demo identifier.
+    }
+
+    if (decodedText.startsWith("PARKSAFE-DEMO:")) {
+      const id = decodedText.replace("PARKSAFE-DEMO:", "").trim();
+      navigate(`/scan/${encodeURIComponent(id)}`);
+      return;
+    }
+
+    // Otherwise treat the scanned content as a vehicle number.
+    searchVehicle(decodedText);
+  }
+
   useEffect(() => {
     if (!scanning) return;
 
@@ -60,7 +111,7 @@ export default function VehicleSearch() {
       "qr-reader",
       {
         fps: 10,
-        qrbox: { width: 250, height: 250 }
+        qrbox: { width: 250, height: 250 },
       },
       false
     );
@@ -69,7 +120,7 @@ export default function VehicleSearch() {
       (decodedText) => {
         setScanning(false);
         scanner.clear().catch(() => {});
-        searchVehicle(decodedText);
+        handleScannedCode(decodedText);
       },
       () => {}
     );
@@ -95,17 +146,24 @@ export default function VehicleSearch() {
       </p>
 
       <form className="search-card" onSubmit={handleSubmit}>
-        <label>Vehicle Registration Number</label>
+        <label htmlFor="vehicle-search-number">
+          Vehicle Registration Number
+        </label>
 
         <input
+          id="vehicle-search-number"
           type="text"
           value={number}
-          onChange={(e) => setNumber(e.target.value)}
+          onChange={(e) => setNumber(e.target.value.toUpperCase())}
           placeholder="Example: UK01AA1000"
           required
         />
 
-        <button className="primary-button" type="submit" disabled={loading}>
+        <button
+          className="primary-button"
+          type="submit"
+          disabled={loading}
+        >
           {loading ? "Searching..." : "Search Vehicle"}
         </button>
       </form>
@@ -116,6 +174,7 @@ export default function VehicleSearch() {
         {!scanning && (
           <button
             className="primary-button"
+            type="button"
             onClick={() => setScanning(true)}
           >
             Start QR Scanner
@@ -128,6 +187,7 @@ export default function VehicleSearch() {
 
             <button
               className="stop-button"
+              type="button"
               onClick={() => setScanning(false)}
             >
               Stop Scanner
@@ -140,18 +200,31 @@ export default function VehicleSearch() {
 
       {vehicle && (
         <div className="result-card">
-          <span className="success-label">DEMO VERIFIED</span>
+          <span className="success-label">
+            {vehicle.status === "Registered locally"
+              ? "LOCAL DEMO VEHICLE"
+              : "VEHICLE VERIFIED"}
+          </span>
 
           <h2>{vehicle.vehicleNumber}</h2>
 
           <p><strong>Type:</strong> {vehicle.vehicleType}</p>
           <p><strong>Model:</strong> {vehicle.vehicleModel}</p>
-          <p><strong>Owner Reference:</strong> {vehicle.ownerReference}</p>
           <p><strong>Status:</strong> {vehicle.status}</p>
+
+          {vehicle.ownerReference !== "Not available in demo mode" && (
+            <p>
+              <strong>Owner Reference:</strong>{" "}
+              {vehicle.ownerReference}
+            </p>
+          )}
 
           <button
             className="primary-button"
-            onClick={() => navigate("/alerts", { state: { vehicle } })}
+            type="button"
+            onClick={() =>
+              navigate("/alerts", { state: { vehicle } })
+            }
           >
             Send Parking Alert →
           </button>

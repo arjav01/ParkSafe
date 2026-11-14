@@ -2149,3 +2149,108 @@ h1 {
   font-size: 11px;
 }
 
+/* =================================
+   PARK SAFE PARKING ISSUE REPORT
+================================= */
+
+.scan-report-button {
+  display: block;
+  width: 100%;
+  padding: 15px;
+  margin-top: 20px;
+  border: none;
+  border-radius: 11px;
+  background: linear-gradient(110deg, #685de5, #4879e8);
+  color: white;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s, opacity 0.2s;
+}
+
+.scan-report-button:hover {
+  transform: translateY(-2px);
+  opacity: 0.95;
+}
+
+.scan-report-form {
+  margin-top: 25px;
+  text-align: left;
+}
+
+.scan-report-form h3 {
+  margin-bottom: 8px;
+  color: #253653;
+  font-size: 20px;
+}
+
+.scan-report-form > p {
+  margin-bottom: 20px;
+  color: #8793a7;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.scan-report-form label {
+  display: block;
+  margin: 16px 0 8px;
+  color: #293955;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.scan-report-form select,
+.scan-report-form textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 13px;
+  border: 1px solid #dfe5f0;
+  border-radius: 10px;
+  background: #fafbfe;
+  color: #253653;
+  font: inherit;
+  font-size: 13px;
+}
+
+.scan-report-form textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+.scan-report-form select:focus,
+.scan-report-form textarea:focus {
+  outline: none;
+  border-color: #685de5;
+}
+
+.scan-form-error {
+  color: #dc3545 !important;
+  font-weight: 600;
+}
+
+.scan-secondary-button {
+  width: 100%;
+  padding: 13px;
+  margin-top: 12px;
+  border: 1px solid #e1e6f0;
+  border-radius: 10px;
+  background: white;
+  color: #52627b;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.report-success-icon {
+  display: grid;
+  place-items: center;
+  width: 60px;
+  height: 60px;
+  margin: 20px auto;
+  border-radius: 50%;
+  background: #e8f8f1;
+  color: #16865f;
+  font-size: 30px;
+  font-weight: 800;
+}
+

@@ -1,6 +1,8 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { QRCodeCanvas } from "qrcode.react";
+
+const STORAGE_KEY = "parksafeVehicles";
 
 const initialVehicles = [
   {
@@ -17,15 +19,32 @@ const initialVehicles = [
   },
 ];
 
+function getInitialVehicles() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+
+    if (saved !== null) {
+      return JSON.parse(saved);
+    }
+
+    return initialVehicles;
+  } catch {
+    return initialVehicles;
+  }
+}
+
 export default function MyVehicles() {
   const [vehicleNumber, setVehicleNumber] = useState("");
   const [vehicleType, setVehicleType] = useState("Car");
   const [vehicleModel, setVehicleModel] = useState("");
 
-  const [vehicles, setVehicles] = useState(initialVehicles);
+  const [vehicles, setVehicles] = useState(getInitialVehicles);
   const [editingId, setEditingId] = useState(null);
-
   const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(vehicles));
+  }, [vehicles]);
 
   const resetForm = () => {
     setVehicleNumber("");
@@ -46,7 +65,7 @@ export default function MyVehicles() {
 
     const duplicate = vehicles.some(
       (vehicle) =>
-        vehicle.vehicleNumber === cleanNumber &&
+        vehicle.vehicleNumber.toUpperCase() === cleanNumber &&
         vehicle.id !== editingId
     );
 
@@ -72,14 +91,13 @@ export default function MyVehicles() {
       setMessage("Vehicle details updated successfully.");
     } else {
       const newVehicle = {
-        id: `PS-DEMO-${Date.now()}`,
+        id: `PS-${Date.now()}`,
         vehicleNumber: cleanNumber,
         vehicleType,
         vehicleModel: vehicleModel.trim(),
       };
 
       setVehicles((previous) => [...previous, newVehicle]);
-
       setMessage("Vehicle added successfully.");
     }
 
@@ -93,10 +111,7 @@ export default function MyVehicles() {
     setEditingId(vehicle.id);
     setMessage("");
 
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleRemove = (id) => {
@@ -123,7 +138,6 @@ export default function MyVehicles() {
     if (!canvas) return;
 
     const link = document.createElement("a");
-
     link.download = `${vehicle.vehicleNumber}-ParkSafe-QR.png`;
     link.href = canvas.toDataURL("image/png");
     link.click();
@@ -139,7 +153,6 @@ export default function MyVehicles() {
         Register and manage your vehicles on ParkSafe.
       </p>
 
-      {/* Registration Form */}
       <section className="search-card vehicle-form-card">
         <h2>
           {editingId ? "Edit Vehicle Details" : "Register a Vehicle"}
@@ -151,9 +164,7 @@ export default function MyVehicles() {
         </p>
 
         <form onSubmit={handleSubmit}>
-          <label htmlFor="vehicle-number">
-            Registration Number
-          </label>
+          <label htmlFor="vehicle-number">Registration Number</label>
 
           <input
             id="vehicle-number"
@@ -166,9 +177,7 @@ export default function MyVehicles() {
             required
           />
 
-          <label htmlFor="vehicle-type">
-            Vehicle Type
-          </label>
+          <label htmlFor="vehicle-type">Vehicle Type</label>
 
           <select
             id="vehicle-type"
@@ -181,9 +190,7 @@ export default function MyVehicles() {
             <option value="Commercial">Commercial Vehicle</option>
           </select>
 
-          <label htmlFor="vehicle-model">
-            Vehicle Model
-          </label>
+          <label htmlFor="vehicle-model">Vehicle Model</label>
 
           <input
             id="vehicle-model"
@@ -218,14 +225,11 @@ export default function MyVehicles() {
         </form>
       </section>
 
-      {/* Registered Vehicles */}
       <section className="search-card vehicles-section">
         <div className="vehicles-section-heading">
           <div>
             <h2>Your Registered Vehicles</h2>
-            <p>
-              Manage your vehicles and their ParkSafe QR codes.
-            </p>
+            <p>Manage your vehicles and their ParkSafe QR codes.</p>
           </div>
 
           <span className="vehicle-count">
@@ -237,9 +241,7 @@ export default function MyVehicles() {
         {vehicles.length === 0 ? (
           <div className="empty-vehicles">
             <div className="empty-vehicles-icon">🚘</div>
-
             <h3>No Vehicles Registered Yet</h3>
-
             <p>
               Register your first vehicle to generate its
               unique ParkSafe QR code.
@@ -260,27 +262,19 @@ export default function MyVehicles() {
                       : "🚚"}
                   </div>
 
-                  <span className="vehicle-status">
-                    Demo
-                  </span>
+                  <span className="vehicle-status">Demo</span>
                 </div>
 
                 <h3>{vehicle.vehicleModel}</h3>
-
-                <p className="vehicle-number">
-                  {vehicle.vehicleNumber}
-                </p>
+                <p className="vehicle-number">{vehicle.vehicleNumber}</p>
 
                 <div className="vehicle-details">
                   <span>Vehicle Type</span>
                   <strong>{vehicle.vehicleType}</strong>
                 </div>
 
-                {/* Park Safe QR Code */}
                 <div className="vehicle-qr-area">
-                  <h3 className="parksafe-qr-title">
-                    Park Safe
-                  </h3>
+                  <h3 className="parksafe-qr-title">Park Safe</h3>
 
                   <QRCodeCanvas
                     id={`qr-${vehicle.id}`}
@@ -305,7 +299,6 @@ export default function MyVehicles() {
                   </button>
                 </div>
 
-                {/* Vehicle Actions */}
                 <div className="vehicle-card-actions">
                   <button
                     type="button"
@@ -329,9 +322,8 @@ export default function MyVehicles() {
         )}
 
         <p className="vehicle-demo-note">
-          These are demonstration records. Vehicle information and QR
-          codes are currently stored locally in this page and are not
-          connected to the ParkSafe database.
+          Vehicle records are currently stored locally in this browser
+          and are not yet connected to the ParkSafe database.
         </p>
       </section>
     </div>
