@@ -12,9 +12,11 @@ import {
 import Navbar from "./components/Navbar";
 import Home from "./pages/Home";
 import VehicleSearch from "./pages/VehicleSearch";
+import MyVehicles from "./pages/MyVehicles";
 import Alerts from "./pages/Alerts";
 import Reports from "./pages/Reports";
 import Dashboard from "./pages/Dashboard";
+import ScanVehicle from "./pages/ScanVehicle";
 
 const API_URL = "https://parksafe-backend-s51i.onrender.com";
 
@@ -91,6 +93,7 @@ function Login({ onLogin }) {
           <div className="auth-brand-mark">P</div>
           ParkSafe
         </div>
+
         <div className="auth-intro-content">
           <span className="auth-kicker">SMART PARKING PLATFORM</span>
           <h1>Smarter streets.<br/>Safer parking.</h1>
@@ -103,6 +106,7 @@ function Login({ onLogin }) {
             Secure role-based access
           </div>
         </div>
+
         <span className="auth-footnote">
           ParkSafe Prototype • Sample vehicle data
         </span>
@@ -153,6 +157,7 @@ function Login({ onLogin }) {
                 Create account
               </button>
             </p>
+
             <p>
               Authority official?{" "}
               <button
@@ -220,19 +225,23 @@ function RegistrationForm({ authority = false }) {
           <div className="auth-brand-mark">P</div>
           ParkSafe
         </div>
+
         <div className="auth-intro-content">
           <span className="auth-kicker">
             {authority ? "AUTHORITY ACCESS" : "JOIN PARKSAFE"}
           </span>
+
           <h1>
             {authority ? "Manage with confidence." : "Make every parking spot safer."}
           </h1>
+
           <p>
             {authority
               ? "Create an authorized demo account to review submitted parking violations."
               : "Join the ParkSafe community to send alerts and report parking issues."}
           </p>
         </div>
+
         <span className="auth-footnote">ParkSafe • Demo Environment</span>
       </div>
 
@@ -241,6 +250,7 @@ function RegistrationForm({ authority = false }) {
           <span className="eyebrow">
             {authority ? "AUTHORITY REGISTRATION" : "USER REGISTRATION"}
           </span>
+
           <h1>Create your account</h1>
           <p className="subtitle">Complete the details below to get started.</p>
 
@@ -330,6 +340,7 @@ function Profile({ user }) {
           </div>
 
           <h2>{user.name}</h2>
+
           <span className="profile-role-tag">
             {user.role === "authority" ? "Authority Account" : "User Account"}
           </span>
@@ -339,16 +350,19 @@ function Profile({ user }) {
               <span>Full Name</span>
               <strong>{user.name}</strong>
             </div>
+
             <div>
               <span>Mobile Number</span>
               <strong>{user.mobile}</strong>
             </div>
+
             <div>
               <span>Account Role</span>
               <strong>
                 {user.role === "authority" ? "Authority" : "User"}
               </strong>
             </div>
+
             <div>
               <span>Account Status</span>
               <strong className="profile-active">Active</strong>
@@ -433,7 +447,6 @@ function AppContent() {
   }
 
   const homePath = user?.role === "authority" ? "/dashboard" : "/";
-
   const isAuthenticated = Boolean(user);
 
   return (
@@ -460,6 +473,7 @@ function AppContent() {
               </button>
 
               <span className="topbar-divider"></span>
+
               <span className="topbar-workspace">
                 {user.role === "authority" ? "Authority Workspace" : "User Workspace"}
               </span>
@@ -481,12 +495,14 @@ function AppContent() {
                   <span className="profile-avatar">
                     {user.name?.charAt(0)?.toUpperCase() || "U"}
                   </span>
+
                   <span className="profile-trigger-text">
                     <strong>{user.name}</strong>
                     <small>
                       {user.role === "authority" ? "Authority" : "User"}
                     </small>
                   </span>
+
                   <Icon name="chevron" size={16}/>
                 </button>
 
@@ -496,6 +512,7 @@ function AppContent() {
                       <span className="dropdown-avatar">
                         {user.name?.charAt(0)?.toUpperCase() || "U"}
                       </span>
+
                       <div>
                         <strong>{user.name}</strong>
                         <small>{user.mobile}</small>
@@ -563,6 +580,11 @@ function AppContent() {
             }
           />
 
+          <Route 
+          path="/scan/:id" 
+          element={<ScanVehicle />} 
+          />
+
           <Route
             path="/"
             element={
@@ -577,6 +599,15 @@ function AppContent() {
             element={
               <ProtectedRoute user={user} role="user">
                 <VehicleSearch/>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/my-vehicles"
+            element={
+              <ProtectedRoute user={user} role="user">
+                <MyVehicles/>
               </ProtectedRoute>
             }
           />
