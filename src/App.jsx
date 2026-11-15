@@ -322,58 +322,159 @@ function RegistrationForm({ authority = false }) {
   );
 }
 
-function Profile({ user }) {
+function Profile({ user, profileImage, onProfileImageChange }) {
+  const [photoMessage, setPhotoMessage] = useState("");
+  const fileInputRef = useRef(null);
+
+  function handlePhotoChange(event) {
+    const selectedFile = event.target.files?.[0];
+    if (!selectedFile) return;
+
+    if (!selectedFile.type.startsWith("image/")) {
+      setPhotoMessage("Please choose an image file.");
+      event.target.value = "";
+      return;
+    }
+
+    if (selectedFile.size > 1.5 * 1024 * 1024) {
+      setPhotoMessage("Please choose an image smaller than 1.5 MB.");
+      event.target.value = "";
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      onProfileImageChange(reader.result);
+      setPhotoMessage("Your profile photo has been updated.");
+    };
+    reader.onerror = () => setPhotoMessage("Could not read this image. Please try again.");
+    reader.readAsDataURL(selectedFile);
+    event.target.value = "";
+  }
+
+  const initial = user?.name?.trim()?.charAt(0)?.toUpperCase() || "U";
+  const isAuthority = user?.role === "authority";
+
   return (
-    <div className="profile-page">
-      <div className="page-heading">
-        <span className="eyebrow">ACCOUNT SETTINGS</span>
-        <h1>My Profile</h1>
-        <p className="subtitle">View your ParkSafe account information.</p>
-      </div>
-
-      <div className="profile-card">
-        <div className="profile-cover"></div>
-
-        <div className="profile-card-body">
-          <div className="profile-large-avatar">
-            {user.name?.charAt(0)?.toUpperCase() || "U"}
-          </div>
-
-          <h2>{user.name}</h2>
-
-          <span className="profile-role-tag">
-            {user.role === "authority" ? "Authority Account" : "User Account"}
-          </span>
-
-          <div className="profile-details">
-            <div>
-              <span>Full Name</span>
-              <strong>{user.name}</strong>
-            </div>
-
-            <div>
-              <span>Mobile Number</span>
-              <strong>{user.mobile}</strong>
-            </div>
-
-            <div>
-              <span>Account Role</span>
-              <strong>
-                {user.role === "authority" ? "Authority" : "User"}
-              </strong>
-            </div>
-
-            <div>
-              <span>Account Status</span>
-              <strong className="profile-active">Active</strong>
-            </div>
-          </div>
-
-          <p className="profile-note">
-            Profile details are read-only in this demo version.
-          </p>
+    <div className="profile-page profile-page-enhanced">
+      <div className="profile-welcome">
+        <div>
+          <span className="eyebrow">YOUR PARKSAFE IDENTITY</span>
+          <h1>My Profile<span className="profile-heading-dot">.</span></h1>
+          <p className="subtitle">A little space that’s all yours. Manage your identity and account details.</p>
         </div>
+        <div className="profile-welcome-mark" aria-hidden="true">✦</div>
       </div>
+
+      <section className="profile-hero-card">
+        <div className="profile-hero-orb profile-hero-orb-one" />
+        <div className="profile-hero-orb profile-hero-orb-two" />
+        <div className="profile-hero-content">
+          <span className="profile-overline"><span /> PARKSAFE MEMBER</span>
+          <h2>Welcome to your<br />personal space.</h2>
+          <p>Your account, your vehicles, your safer streets.</p>
+          <div className="profile-hero-pills">
+            <span><span className="profile-mini-check">✓</span> Account active</span>
+            <span><span className="profile-mini-spark">✦</span> {isAuthority ? "Authority workspace" : "User workspace"}</span>
+          </div>
+        </div>
+        <div className="profile-hero-art" aria-hidden="true">
+          <div className="profile-hero-ring ring-one" />
+          <div className="profile-hero-ring ring-two" />
+          <div className="profile-hero-ring ring-three" />
+          <div className="profile-hero-shield">P</div>
+          <span className="profile-hero-star">✦</span>
+        </div>
+      </section>
+
+      <section className="profile-main-grid">
+        <article className="profile-identity-card">
+          <div className="profile-card-topline">
+            <div>
+              <span className="profile-section-kicker">YOUR IDENTITY</span>
+              <h2>Profile overview</h2>
+            </div>
+            <span className="profile-secure-badge"><span /> Secure</span>
+          </div>
+
+          <div className="profile-avatar-section">
+            <div className="profile-photo-wrap">
+              {profileImage ? (
+                <img className="profile-photo-image" src={profileImage} alt="Your profile" />
+              ) : (
+                <div className="profile-photo-fallback">{initial}</div>
+              )}
+              <span className="profile-photo-status" title="Account active" />
+            </div>
+            <div className="profile-photo-copy">
+              <h3>{user?.name || "ParkSafe Member"}</h3>
+              <p>{isAuthority ? "Verified authority account" : "ParkSafe community member"}</p>
+              <div className="profile-photo-actions">
+                <button type="button" className="profile-upload-button" onClick={() => fileInputRef.current?.click()}>
+                  <span>↑</span> {profileImage ? "Change photo" : "Upload photo"}
+                </button>
+                {profileImage && (
+                  <button type="button" className="profile-remove-photo" onClick={() => { onProfileImageChange(""); setPhotoMessage("Profile photo removed."); }}>
+                    Remove
+                  </button>
+                )}
+              </div>
+              <input
+                ref={fileInputRef}
+                className="profile-file-input"
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                onChange={handlePhotoChange}
+                aria-label="Choose profile picture"
+              />
+              <small className="profile-photo-hint">JPG, PNG, WEBP or GIF · Max 1.5 MB</small>
+              {photoMessage && <p className="profile-photo-message" role="status">{photoMessage}</p>}
+            </div>
+          </div>
+
+          <div className="profile-information-list">
+            <div className="profile-information-row">
+              <span className="profile-info-icon">♙</span>
+              <div><small>Full name</small><strong>{user?.name || "Not available"}</strong></div>
+              <span className="profile-readonly-tag">Account detail</span>
+            </div>
+            <div className="profile-information-row">
+              <span className="profile-info-icon">⌕</span>
+              <div><small>Mobile number</small><strong>{user?.mobile || "Not available"}</strong></div>
+              <span className="profile-readonly-tag">Account detail</span>
+            </div>
+            <div className="profile-information-row">
+              <span className="profile-info-icon">▣</span>
+              <div><small>Account type</small><strong>{isAuthority ? "Authority" : "User"}</strong></div>
+              <span className="profile-role-chip">{isAuthority ? "Authority" : "Member"}</span>
+            </div>
+            <div className="profile-information-row">
+              <span className="profile-info-icon">✓</span>
+              <div><small>Account status</small><strong className="profile-status-active">Active</strong></div>
+              <span className="profile-live-indicator"><span /> Active</span>
+            </div>
+          </div>
+          <p className="profile-readonly-note">Your name and mobile number are currently managed by your ParkSafe account. Profile photo changes are saved in this browser.</p>
+        </article>
+
+        <aside className="profile-side-column">
+          <article className="profile-side-card profile-security-card">
+            <div className="profile-side-icon">⌑</div>
+            <span className="profile-section-kicker">ACCOUNT SECURITY</span>
+            <h3>Your account is protected.</h3>
+            <p>Keep your sign-in details private. ParkSafe will never display your password on this page.</p>
+            <div className="profile-security-line"><span /> Session active</div>
+          </article>
+
+          <article className="profile-side-card profile-help-card">
+            <div className="profile-help-icon">✦</div>
+            <span className="profile-section-kicker">THE PARKSAFE PROMISE</span>
+            <h3>Safer parking starts with all of us.</h3>
+            <p>Stay connected, keep your vehicle information organised, and help make shared spaces safer.</p>
+            <div className="profile-help-footer">SMARTER STREETS. SAFER PARKING.</div>
+          </article>
+        </aside>
+      </section>
     </div>
   );
 }
@@ -401,6 +502,19 @@ function AppContent() {
       return null;
     }
   });
+
+  const [profileImage, setProfileImage] = useState(() =>
+    localStorage.getItem("parksafeProfileImage") || ""
+  );
+
+  function updateProfileImage(imageData) {
+    setProfileImage(imageData);
+    if (imageData) {
+      localStorage.setItem("parksafeProfileImage", imageData);
+    } else {
+      localStorage.removeItem("parksafeProfileImage");
+    }
+  }
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -493,7 +607,9 @@ function AppContent() {
                   aria-label="Open account menu"
                 >
                   <span className="profile-avatar">
-                    {user.name?.charAt(0)?.toUpperCase() || "U"}
+                    {profileImage
+                      ? <img src={profileImage} alt="" />
+                      : (user.name?.charAt(0)?.toUpperCase() || "U")}
                   </span>
 
                   <span className="profile-trigger-text">
@@ -510,7 +626,9 @@ function AppContent() {
                   <div className="profile-dropdown">
                     <div className="dropdown-user">
                       <span className="dropdown-avatar">
-                        {user.name?.charAt(0)?.toUpperCase() || "U"}
+                        {profileImage
+                          ? <img src={profileImage} alt="" />
+                          : (user.name?.charAt(0)?.toUpperCase() || "U")}
                       </span>
 
                       <div>
@@ -643,7 +761,7 @@ function AppContent() {
             path="/profile"
             element={
               <ProtectedRoute user={user}>
-                <Profile user={user}/>
+                <Profile user={user} profileImage={profileImage} onProfileImageChange={updateProfileImage}/>
               </ProtectedRoute>
             }
           />
