@@ -56,7 +56,10 @@ async function logLogin(req, mobile, success, userId = null) {
       ]
     );
   } catch (error) {
-    console.error("Login activity logging failed:", error.message);
+    console.error(
+      "Login activity logging failed:",
+      error.message
+    );
   }
 }
 
@@ -92,11 +95,18 @@ app.get("/api/health", async (req, res) => {
 
 app.get("/api/vehicles/:number", async (req, res) => {
   try {
-    const number = req.params.number.trim().toUpperCase();
+    const number = req.params.number
+      .trim()
+      .toUpperCase();
 
     const result = await db.query(
-      `SELECT id, vehicle_number, vehicle_type,
-              vehicle_model, owner_reference, status
+      `SELECT
+          id,
+          vehicle_number,
+          vehicle_type,
+          vehicle_model,
+          owner_reference,
+          status
        FROM public.vehicles
        WHERE vehicle_number = $1`,
       [number]
@@ -113,8 +123,12 @@ app.get("/api/vehicles/:number", async (req, res) => {
       success: true,
       vehicle: result.rows[0]
     });
+
   } catch (error) {
-    console.error("Vehicle search error:", error.message);
+    console.error(
+      "Vehicle search error:",
+      error.message
+    );
 
     res.status(500).json({
       success: false,
@@ -129,6 +143,7 @@ app.get("/api/vehicles/:number", async (req, res) => {
 
 function authenticateToken(req, res, next) {
   const authHeader = req.headers.authorization;
+
   const token = authHeader?.split(" ")[1];
 
   if (!token) {
@@ -138,17 +153,23 @@ function authenticateToken(req, res, next) {
     });
   }
 
-  jwt.verify(token, JWT_SECRET, (error, decoded) => {
-    if (error) {
-      return res.status(403).json({
-        success: false,
-        message: "Invalid or expired token"
-      });
-    }
+  jwt.verify(
+    token,
+    JWT_SECRET,
+    (error, decoded) => {
 
-    req.user = decoded;
-    next();
-  });
+      if (error) {
+        return res.status(403).json({
+          success: false,
+          message: "Invalid or expired token"
+        });
+      }
+
+      req.user = decoded;
+
+      next();
+    }
+  );
 }
 
 // ==========================================
@@ -156,8 +177,11 @@ function authenticateToken(req, res, next) {
 // ==========================================
 
 function requireRole(role) {
+
   return async (req, res, next) => {
+
     try {
+
       const result = await db.query(
         `SELECT id, role
          FROM public.users
@@ -168,20 +192,29 @@ function requireRole(role) {
       const user = result.rows[0];
 
       if (!user || user.role !== role) {
+
         return res.status(403).json({
           success: false,
-          message: "Access denied. Insufficient permissions."
+          message:
+            "Access denied. Insufficient permissions."
         });
       }
 
       req.user.role = user.role;
+
       next();
+
     } catch (error) {
-      console.error("Role check failed:", error.message);
+
+      console.error(
+        "Role check failed:",
+        error.message
+      );
 
       res.status(500).json({
         success: false,
-        message: "Permission verification failed"
+        message:
+          "Permission verification failed"
       });
     }
   };
@@ -201,377 +234,699 @@ const requireUser = [
 // USER REGISTRATION
 // ==========================================
 
-app.post("/api/auth/register", async (req, res) => {
-  try {
-    const { name, mobile, password } = req.body;
+app.post(
+  "/api/auth/register",
+  async (req, res) => {
 
-    if (!name?.trim() || !mobile || !password) {
-      return res.status(400).json({
+    try {
+
+      const {
+        name,
+        mobile,
+        password
+      } = req.body;
+
+      if (
+        !name?.trim() ||
+        !mobile ||
+        !password
+      ) {
+
+        return res.status(400).json({
+          success: false,
+          message: "All fields are required"
+        });
+      }
+
+      if (!/^\d{10}$/.test(mobile)) {
+
+        return res.status(400).json({
+          success: false,
+          message:
+            "Enter a valid 10-digit mobile number"
+        });
+      }
+
+      if (password.length < 6) {
+
+        return res.status(400).json({
+          success: false,
+          message:
+            "Password must contain at least 6 characters"
+        });
+      }
+
+      const hashedPassword =
+        await bcrypt.hash(password, 10);
+
+      const result = await db.query(
+        `INSERT INTO public.users
+         (name, mobile, password, role)
+         VALUES ($1, $2, $3, 'user')
+         RETURNING id`,
+        [
+          name.trim(),
+          mobile,
+          hashedPassword
+        ]
+      );
+
+      res.status(201).json({
+        success: true,
+        message:
+          "User registration successful!",
+        userId: result.rows[0].id
+      });
+
+    } catch (error) {
+
+      if (error.code === "23505") {
+
+        return res.status(409).json({
+          success: false,
+          message:
+            "Mobile number already registered"
+        });
+      }
+
+      console.error(
+        "Registration error:",
+        error.message
+      );
+
+      res.status(500).json({
         success: false,
-        message: "All fields are required"
+        message:
+          "User registration failed"
       });
     }
-
-    if (!/^\d{10}$/.test(mobile)) {
-      return res.status(400).json({
-        success: false,
-        message: "Enter a valid 10-digit mobile number"
-      });
-    }
-
-    if (password.length < 6) {
-      return res.status(400).json({
-        success: false,
-        message: "Password must contain at least 6 characters"
-      });
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    const result = await db.query(
-      `INSERT INTO public.users
-       (name, mobile, password, role)
-       VALUES ($1, $2, $3, 'user')
-       RETURNING id`,
-      [name.trim(), mobile, hashedPassword]
-    );
-
-    res.status(201).json({
-      success: true,
-      message: "User registration successful!",
-      userId: result.rows[0].id
-    });
-  } catch (error) {
-    if (error.code === "23505") {
-      return res.status(409).json({
-        success: false,
-        message: "Mobile number already registered"
-      });
-    }
-
-    console.error("Registration error:", error.message);
-
-    res.status(500).json({
-      success: false,
-      message: "User registration failed"
-    });
   }
-});
+);
 
 // ==========================================
 // AUTHORITY REGISTRATION
 // ==========================================
 
-app.post("/api/auth/register-authority", async (req, res) => {
-  try {
-    const { name, mobile, password, authorityCode } = req.body;
+app.post(
+  "/api/auth/register-authority",
+  async (req, res) => {
 
-    if (!name?.trim() || !mobile || !password || !authorityCode) {
-      return res.status(400).json({
+    try {
+
+      const {
+        name,
+        mobile,
+        password,
+        authorityCode
+      } = req.body;
+
+      if (
+        !name?.trim() ||
+        !mobile ||
+        !password ||
+        !authorityCode
+      ) {
+
+        return res.status(400).json({
+          success: false,
+          message: "All fields are required"
+        });
+      }
+
+      if (
+        authorityCode !== AUTHORITY_CODE
+      ) {
+
+        return res.status(403).json({
+          success: false,
+          message:
+            "Invalid authority registration code"
+        });
+      }
+
+      if (!/^\d{10}$/.test(mobile)) {
+
+        return res.status(400).json({
+          success: false,
+          message:
+            "Enter a valid 10-digit mobile number"
+        });
+      }
+
+      if (password.length < 6) {
+
+        return res.status(400).json({
+          success: false,
+          message:
+            "Password must contain at least 6 characters"
+        });
+      }
+
+      const hashedPassword =
+        await bcrypt.hash(password, 10);
+
+      const result = await db.query(
+        `INSERT INTO public.users
+         (name, mobile, password, role)
+         VALUES ($1, $2, $3, 'authority')
+         RETURNING id`,
+        [
+          name.trim(),
+          mobile,
+          hashedPassword
+        ]
+      );
+
+      res.status(201).json({
+        success: true,
+        message:
+          "Authority registration successful!",
+        userId: result.rows[0].id
+      });
+
+    } catch (error) {
+
+      if (error.code === "23505") {
+
+        return res.status(409).json({
+          success: false,
+          message:
+            "Mobile number already registered"
+        });
+      }
+
+      console.error(
+        "Authority registration error:",
+        error.message
+      );
+
+      res.status(500).json({
         success: false,
-        message: "All fields are required"
+        message:
+          "Authority registration failed"
       });
     }
-
-    if (authorityCode !== AUTHORITY_CODE) {
-      return res.status(403).json({
-        success: false,
-        message: "Invalid authority registration code"
-      });
-    }
-
-    if (!/^\d{10}$/.test(mobile)) {
-      return res.status(400).json({
-        success: false,
-        message: "Enter a valid 10-digit mobile number"
-      });
-    }
-
-    if (password.length < 6) {
-      return res.status(400).json({
-        success: false,
-        message: "Password must contain at least 6 characters"
-      });
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    const result = await db.query(
-      `INSERT INTO public.users
-       (name, mobile, password, role)
-       VALUES ($1, $2, $3, 'authority')
-       RETURNING id`,
-      [name.trim(), mobile, hashedPassword]
-    );
-
-    res.status(201).json({
-      success: true,
-      message: "Authority registration successful!",
-      userId: result.rows[0].id
-    });
-  } catch (error) {
-    if (error.code === "23505") {
-      return res.status(409).json({
-        success: false,
-        message: "Mobile number already registered"
-      });
-    }
-
-    console.error("Authority registration error:", error.message);
-
-    res.status(500).json({
-      success: false,
-      message: "Authority registration failed"
-    });
   }
-});
+);
+
+// ==========================================
+// FORGOT PASSWORD
+// DEMO VERSION - NO OTP VERIFICATION
+// ==========================================
+
+app.post(
+  "/api/auth/reset-password",
+  async (req, res) => {
+
+    try {
+
+      const {
+        mobile,
+        newPassword
+      } = req.body;
+
+      if (!mobile || !newPassword) {
+
+        return res.status(400).json({
+          success: false,
+          message:
+            "Mobile number and new password are required"
+        });
+      }
+
+      if (!/^\d{10}$/.test(mobile)) {
+
+        return res.status(400).json({
+          success: false,
+          message:
+            "Enter a valid 10-digit mobile number"
+        });
+      }
+
+      if (newPassword.length < 6) {
+
+        return res.status(400).json({
+          success: false,
+          message:
+            "Password must contain at least 6 characters"
+        });
+      }
+
+      // Check whether user exists
+      const userResult = await db.query(
+        `SELECT id, name, mobile
+         FROM public.users
+         WHERE mobile = $1`,
+        [mobile]
+      );
+
+      if (
+        userResult.rows.length === 0
+      ) {
+
+        return res.status(404).json({
+          success: false,
+          message:
+            "No account found with this mobile number"
+        });
+      }
+
+      const user =
+        userResult.rows[0];
+
+      // Hash new password
+      const hashedPassword =
+        await bcrypt.hash(
+          newPassword,
+          10
+        );
+
+      // Update password
+      await db.query(
+        `UPDATE public.users
+         SET password = $1
+         WHERE id = $2`,
+        [
+          hashedPassword,
+          user.id
+        ]
+      );
+
+      // Save audit log
+      try {
+
+        await db.query(
+          `INSERT INTO public.audit_logs
+           (
+             actor_user_id,
+             action,
+             entity_type,
+             entity_id,
+             details
+           )
+           VALUES
+           ($1, $2, $3, $4, $5)`,
+          [
+            user.id,
+            "PASSWORD_RESET_DEMO",
+            "user",
+            String(user.id),
+            JSON.stringify({
+              mobile: user.mobile
+            })
+          ]
+        );
+
+      } catch (auditError) {
+
+        console.error(
+          "Password reset audit logging failed:",
+          auditError.message
+        );
+      }
+
+      res.json({
+        success: true,
+        message:
+          "Password changed successfully. Please login."
+      });
+
+    } catch (error) {
+
+      console.error(
+        "Password reset error:",
+        error.message
+      );
+
+      res.status(500).json({
+        success: false,
+        message:
+          "Could not reset password"
+      });
+    }
+  }
+);
 
 // ==========================================
 // LOGIN - USER AND AUTHORITY
 // ==========================================
 
-app.post("/api/auth/login", async (req, res) => {
-  try {
-    const { mobile, password } = req.body;
+app.post(
+  "/api/auth/login",
+  async (req, res) => {
 
-    if (!mobile || !password) {
-      return res.status(400).json({
-        success: false,
-        message: "Mobile and password are required"
-      });
-    }
+    try {
 
-    const result = await db.query(
-      `SELECT id, name, mobile, password, role
-       FROM public.users
-       WHERE mobile = $1`,
-      [mobile]
-    );
+      const {
+        mobile,
+        password
+      } = req.body;
 
-    const user = result.rows[0];
+      if (!mobile || !password) {
 
-    if (!user) {
-      await logLogin(req, mobile, false);
-
-      return res.status(401).json({
-        success: false,
-        message: "Invalid mobile number or password"
-      });
-    }
-
-    const validPassword = await bcrypt.compare(
-      password,
-      user.password
-    );
-
-    if (!validPassword) {
-      await logLogin(req, mobile, false, user.id);
-
-      return res.status(401).json({
-        success: false,
-        message: "Invalid mobile number or password"
-      });
-    }
-
-    await logLogin(req, mobile, true, user.id);
-
-    const token = jwt.sign(
-      {
-        userId: user.id,
-        role: user.role
-      },
-      JWT_SECRET,
-      { expiresIn: "7d" }
-    );
-
-    res.json({
-      success: true,
-      message: "Login successful!",
-      token,
-      user: {
-        id: user.id,
-        name: user.name,
-        mobile: user.mobile,
-        role: user.role
+        return res.status(400).json({
+          success: false,
+          message:
+            "Mobile and password are required"
+        });
       }
-    });
-  } catch (error) {
-    console.error("Login error:", error.message);
 
-    res.status(500).json({
-      success: false,
-      message: "Login failed"
-    });
+      const result = await db.query(
+        `SELECT
+           id,
+           name,
+           mobile,
+           password,
+           role
+         FROM public.users
+         WHERE mobile = $1`,
+        [mobile]
+      );
+
+      const user =
+        result.rows[0];
+
+      if (!user) {
+
+        await logLogin(
+          req,
+          mobile,
+          false
+        );
+
+        return res.status(401).json({
+          success: false,
+          message:
+            "Invalid mobile number or password"
+        });
+      }
+
+      const validPassword =
+        await bcrypt.compare(
+          password,
+          user.password
+        );
+
+      if (!validPassword) {
+
+        await logLogin(
+          req,
+          mobile,
+          false,
+          user.id
+        );
+
+        return res.status(401).json({
+          success: false,
+          message:
+            "Invalid mobile number or password"
+        });
+      }
+
+      await logLogin(
+        req,
+        mobile,
+        true,
+        user.id
+      );
+
+      const token = jwt.sign(
+        {
+          userId: user.id,
+          role: user.role
+        },
+        JWT_SECRET,
+        {
+          expiresIn: "7d"
+        }
+      );
+
+      res.json({
+        success: true,
+        message:
+          "Login successful!",
+        token,
+        user: {
+          id: user.id,
+          name: user.name,
+          mobile: user.mobile,
+          role: user.role
+        }
+      });
+
+    } catch (error) {
+
+      console.error(
+        "Login error:",
+        error.message
+      );
+
+      res.status(500).json({
+        success: false,
+        message: "Login failed"
+      });
+    }
   }
-});
+);
 
 // ==========================================
 // CURRENT USER PROFILE
 // ==========================================
 
-app.get("/api/auth/me", authenticateToken, async (req, res) => {
-  try {
-    const result = await db.query(
-      `SELECT id, name, mobile, role, created_at AS "createdAt"
-       FROM public.users
-       WHERE id = $1`,
-      [req.user.userId]
-    );
+app.get(
+  "/api/auth/me",
+  authenticateToken,
+  async (req, res) => {
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({
+    try {
+
+      const result = await db.query(
+        `SELECT
+           id,
+           name,
+           mobile,
+           role,
+           created_at AS "createdAt"
+         FROM public.users
+         WHERE id = $1`,
+        [req.user.userId]
+      );
+
+      if (
+        result.rows.length === 0
+      ) {
+
+        return res.status(404).json({
+          success: false,
+          message:
+            "User not found"
+        });
+      }
+
+      res.json({
+        success: true,
+        user: result.rows[0]
+      });
+
+    } catch (error) {
+
+      console.error(
+        "Profile error:",
+        error.message
+      );
+
+      res.status(500).json({
         success: false,
-        message: "User not found"
+        message:
+          "Could not fetch profile"
       });
     }
-
-    res.json({
-      success: true,
-      user: result.rows[0]
-    });
-  } catch (error) {
-    console.error("Profile error:", error.message);
-
-    res.status(500).json({
-      success: false,
-      message: "Could not fetch profile"
-    });
   }
-});
+);
 
 // ==========================================
 // USER - SUBMIT REPORT
 // ==========================================
 
-app.post("/api/reports", ...requireUser, async (req, res) => {
-  try {
-    const {
-      violationType,
-      description,
-      location,
-      coordinates,
-      fileName
-    } = req.body;
+app.post(
+  "/api/reports",
+  ...requireUser,
+  async (req, res) => {
 
-    if (!violationType || !description?.trim() || !location?.trim()) {
-      return res.status(400).json({
+    try {
+
+      const {
+        violationType,
+        description,
+        location,
+        coordinates,
+        fileName
+      } = req.body;
+
+      if (
+        !violationType ||
+        !description?.trim() ||
+        !location?.trim()
+      ) {
+
+        return res.status(400).json({
+          success: false,
+          message:
+            "Violation type, description and location are required"
+        });
+      }
+
+      const reportId =
+        "RPT-" +
+        crypto.randomUUID();
+
+      await db.query(
+        `INSERT INTO public.reports
+         (
+           report_id,
+           user_id,
+           violation_type,
+           description,
+           location,
+           coordinates,
+           file_name
+         )
+         VALUES
+         ($1,$2,$3,$4,$5,$6,$7)`,
+        [
+          reportId,
+          req.user.userId,
+          violationType,
+          description.trim(),
+          location.trim(),
+          coordinates || "",
+          fileName ||
+            "No attachment"
+        ]
+      );
+
+      res.status(201).json({
+        success: true,
+        message:
+          "Report submitted successfully",
+        reportId
+      });
+
+    } catch (error) {
+
+      console.error(
+        "Report submission error:",
+        error.message
+      );
+
+      res.status(500).json({
         success: false,
-        message: "Violation type, description and location are required"
+        message:
+          "Could not submit report"
       });
     }
-
-    const reportId = "RPT-" + crypto.randomUUID();
-
-    await db.query(
-      `INSERT INTO public.reports
-       (report_id, user_id, violation_type, description,
-        location, coordinates, file_name)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [
-        reportId,
-        req.user.userId,
-        violationType,
-        description.trim(),
-        location.trim(),
-        coordinates || "",
-        fileName || "No attachment"
-      ]
-    );
-
-    res.status(201).json({
-      success: true,
-      message: "Report submitted successfully",
-      reportId
-    });
-  } catch (error) {
-    console.error("Report submission error:", error.message);
-
-    res.status(500).json({
-      success: false,
-      message: "Could not submit report"
-    });
   }
-});
+);
 
 // ==========================================
 // USER - OWN REPORT HISTORY
 // ==========================================
 
-app.get("/api/reports/my", ...requireUser, async (req, res) => {
-  try {
-    const result = await db.query(
-      `SELECT
-         report_id AS "reportId",
-         violation_type AS "violationType",
-         description,
-         location,
-         coordinates,
-         file_name AS "fileName",
-         status,
-         authority_remark AS "authorityRemark",
-         reviewed_at AS "reviewedAt",
-         submitted_at AS "submittedAt"
-       FROM public.reports
-       WHERE user_id = $1
-       ORDER BY id DESC`,
-      [req.user.userId]
-    );
+app.get(
+  "/api/reports/my",
+  ...requireUser,
+  async (req, res) => {
 
-    res.json({
-      success: true,
-      reports: result.rows
-    });
-  } catch (error) {
-    console.error("Report history error:", error.message);
+    try {
 
-    res.status(500).json({
-      success: false,
-      message: "Could not fetch reports"
-    });
+      const result = await db.query(
+        `SELECT
+           report_id AS "reportId",
+           violation_type AS "violationType",
+           description,
+           location,
+           coordinates,
+           file_name AS "fileName",
+           status,
+           submitted_at AS "submittedAt"
+         FROM public.reports
+         WHERE user_id = $1
+         ORDER BY id DESC`,
+        [
+          req.user.userId
+        ]
+      );
+
+      res.json({
+        success: true,
+        reports: result.rows
+      });
+
+    } catch (error) {
+
+      console.error(
+        "Report history error:",
+        error.message
+      );
+
+      res.status(500).json({
+        success: false,
+        message:
+          "Could not fetch reports"
+      });
+    }
   }
-});
+);
 
 // ==========================================
 // AUTHORITY - ALL REPORTS
 // ==========================================
 
-app.get("/api/reports", ...requireAuthority, async (req, res) => {
-  try {
-    const result = await db.query(
-      `SELECT
-         reports.report_id AS "reportId",
-         reports.violation_type AS "violationType",
-         reports.description,
-         reports.location,
-         reports.coordinates,
-         reports.file_name AS "fileName",
-         reports.status,
-         reports.authority_remark AS "authorityRemark",
-         reports.reviewed_at AS "reviewedAt",
-         reports.submitted_at AS "submittedAt",
-         users.name AS "userName",
-         users.mobile AS "userMobile",
-         reviewer.name AS "reviewedByName"
-       FROM public.reports
-       JOIN public.users ON reports.user_id = users.id
-       LEFT JOIN public.users AS reviewer
-         ON reports.reviewed_by = reviewer.id
-       ORDER BY reports.id DESC`
-    );
+app.get(
+  "/api/reports",
+  ...requireAuthority,
+  async (req, res) => {
 
-    res.json({
-      success: true,
-      reports: result.rows
-    });
-  } catch (error) {
-    console.error("Authority reports error:", error.message);
+    try {
 
-    res.status(500).json({
-      success: false,
-      message: "Could not fetch reports"
-    });
+      const result = await db.query(
+        `SELECT
+           reports.report_id AS "reportId",
+           reports.violation_type AS "violationType",
+           reports.description,
+           reports.location,
+           reports.coordinates,
+           reports.file_name AS "fileName",
+           reports.status,
+           reports.submitted_at AS "submittedAt",
+           users.name AS "userName",
+           users.mobile AS "userMobile"
+         FROM public.reports
+         JOIN public.users
+           ON reports.user_id = users.id
+         ORDER BY reports.id DESC`
+      );
+
+      res.json({
+        success: true,
+        reports: result.rows
+      });
+
+    } catch (error) {
+
+      console.error(
+        "Authority reports error:",
+        error.message
+      );
+
+      res.status(500).json({
+        success: false,
+        message:
+          "Could not fetch reports"
+      });
+    }
   }
-});
+);
 
 // ==========================================
 // AUTHORITY - UPDATE REPORT STATUS
@@ -581,104 +936,112 @@ app.patch(
   "/api/reports/:reportId/status",
   ...requireAuthority,
   async (req, res) => {
+
     let client;
 
     try {
-      const { status, remark } = req.body;
 
-      const authorityRemark =
-        typeof remark === "string" ? remark.trim() : "";
+      const { status } = req.body;
 
-      if (!["Approved", "Rejected"].includes(status)) {
+      if (
+        ![
+          "Approved",
+          "Rejected"
+        ].includes(status)
+      ) {
+
         return res.status(400).json({
           success: false,
-          message: "Invalid report status"
+          message:
+            "Invalid report status"
         });
       }
 
-      if (status === "Rejected" && !authorityRemark) {
-        return res.status(400).json({
-          success: false,
-          message: "A reason is required when rejecting a report."
-        });
-      }
-
-      if (authorityRemark.length > 1000) {
-        return res.status(400).json({
-          success: false,
-          message: "Remarks cannot exceed 1000 characters."
-        });
-      }
-
-      client = await db.connect();
+      client =
+        await db.connect();
 
       await client.query("BEGIN");
 
-      const result = await client.query(
-        `UPDATE public.reports
-         SET status = $1,
-             authority_remark = $2,
-             reviewed_by = $3,
-             reviewed_at = NOW()
-         WHERE report_id = $4
-         RETURNING
-           report_id AS "reportId",
-           status,
-           authority_remark AS "authorityRemark",
-           reviewed_by AS "reviewedBy",
-           reviewed_at AS "reviewedAt"`,
-        [
-          status,
-          authorityRemark || null,
-          req.user.userId,
-          req.params.reportId
-        ]
-      );
+      const result =
+        await client.query(
+          `UPDATE public.reports
+           SET status = $1
+           WHERE report_id = $2
+           RETURNING report_id`,
+          [
+            status,
+            req.params.reportId
+          ]
+        );
 
-      if (result.rowCount === 0) {
-        await client.query("ROLLBACK");
+      if (
+        result.rowCount === 0
+      ) {
+
+        await client.query(
+          "ROLLBACK"
+        );
 
         return res.status(404).json({
           success: false,
-          message: "Report not found"
+          message:
+            "Report not found"
         });
       }
 
       await client.query(
         `INSERT INTO public.audit_logs
-         (actor_user_id, action, entity_type, entity_id, details)
-         VALUES ($1, $2, $3, $4, $5)`,
+         (
+           actor_user_id,
+           action,
+           entity_type,
+           entity_id,
+           details
+         )
+         VALUES
+         ($1,$2,$3,$4,$5)`,
         [
           req.user.userId,
           `REPORT_${status.toUpperCase()}`,
           "report",
           req.params.reportId,
           JSON.stringify({
-            status,
-            authorityRemark: authorityRemark || null
+            status
           })
         ]
       );
 
-      await client.query("COMMIT");
+      await client.query(
+        "COMMIT"
+      );
 
       res.json({
         success: true,
-        message: "Report status updated successfully",
-        report: result.rows[0]
+        message:
+          "Report status updated successfully"
       });
+
     } catch (error) {
+
       if (client) {
-        await client.query("ROLLBACK").catch(() => {});
+        await client
+          .query("ROLLBACK")
+          .catch(() => {});
       }
 
-      console.error("Status update error:", error.message);
+      console.error(
+        "Status update error:",
+        error.message
+      );
 
       res.status(500).json({
         success: false,
-        message: "Could not update report status"
+        message:
+          "Could not update report status"
       });
+
     } finally {
+
       if (client) {
         client.release();
       }
@@ -691,24 +1054,44 @@ app.patch(
 // ==========================================
 
 async function startServer() {
+
   try {
+
     await db.query("SELECT 1");
 
-    console.log("Supabase PostgreSQL connected.");
+    console.log(
+      "Supabase PostgreSQL connected."
+    );
 
     console.log(
       "REGISTERED ROUTES:",
       app.router.stack
-        .filter(layer => layer.route)
-        .map(layer => layer.route.path)
+        .filter(
+          layer => layer.route
+        )
+        .map(
+          layer => layer.route.path
+        )
     );
 
-    app.listen(PORT, "0.0.0.0", () => {
-      console.log(`ParkSafe Backend running on port ${PORT}`);
-    });
+    app.listen(
+      PORT,
+      "0.0.0.0",
+      () => {
+
+        console.log(
+          `ParkSafe Backend running on port ${PORT}`
+        );
+      }
+    );
 
   } catch (error) {
-    console.error("Could not connect to Supabase:", error.message);
+
+    console.error(
+      "Could not connect to Supabase:",
+      error.message
+    );
+
     process.exit(1);
   }
 }
