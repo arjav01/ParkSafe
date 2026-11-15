@@ -1,4 +1,3 @@
-
 require("dotenv").config();
 
 const express = require("express");
@@ -509,6 +508,8 @@ app.get("/api/reports/my", ...requireUser, async (req, res) => {
          coordinates,
          file_name AS "fileName",
          status,
+         authority_remark AS "authorityRemark",
+         reviewed_at AS "reviewedAt",
          submitted_at AS "submittedAt"
        FROM public.reports
        WHERE user_id = $1
@@ -545,11 +546,16 @@ app.get("/api/reports", ...requireAuthority, async (req, res) => {
          reports.coordinates,
          reports.file_name AS "fileName",
          reports.status,
+         reports.authority_remark AS "authorityRemark",
+         reports.reviewed_at AS "reviewedAt",
          reports.submitted_at AS "submittedAt",
          users.name AS "userName",
-         users.mobile AS "userMobile"
+         users.mobile AS "userMobile",
+         reviewer.name AS "reviewedByName"
        FROM public.reports
        JOIN public.users ON reports.user_id = users.id
+       LEFT JOIN public.users AS reviewer
+         ON reports.reviewed_by = reviewer.id
        ORDER BY reports.id DESC`
     );
 
@@ -578,12 +584,29 @@ app.patch(
     let client;
 
     try {
-      const { status } = req.body;
+      const { status, remark } = req.body;
+
+      const authorityRemark =
+        typeof remark === "string" ? remark.trim() : "";
 
       if (!["Approved", "Rejected"].includes(status)) {
         return res.status(400).json({
           success: false,
           message: "Invalid report status"
+        });
+      }
+
+      if (status === "Rejected" && !authorityRemark) {
+        return res.status(400).json({
+          success: false,
+          message: "A reason is required when rejecting a report."
+        });
+      }
+
+      if (authorityRemark.length > 1000) {
+        return res.status(400).json({
+          success: false,
+          message: "Remarks cannot exceed 1000 characters."
         });
       }
 
@@ -593,10 +616,23 @@ app.patch(
 
       const result = await client.query(
         `UPDATE public.reports
-         SET status = $1
-         WHERE report_id = $2
-         RETURNING report_id`,
-        [status, req.params.reportId]
+         SET status = $1,
+             authority_remark = $2,
+             reviewed_by = $3,
+             reviewed_at = NOW()
+         WHERE report_id = $4
+         RETURNING
+           report_id AS "reportId",
+           status,
+           authority_remark AS "authorityRemark",
+           reviewed_by AS "reviewedBy",
+           reviewed_at AS "reviewedAt"`,
+        [
+          status,
+          authorityRemark || null,
+          req.user.userId,
+          req.params.reportId
+        ]
       );
 
       if (result.rowCount === 0) {
@@ -617,7 +653,10 @@ app.patch(
           `REPORT_${status.toUpperCase()}`,
           "report",
           req.params.reportId,
-          JSON.stringify({ status })
+          JSON.stringify({
+            status,
+            authorityRemark: authorityRemark || null
+          })
         ]
       );
 
@@ -625,7 +664,8 @@ app.patch(
 
       res.json({
         success: true,
-        message: "Report status updated successfully"
+        message: "Report status updated successfully",
+        report: result.rows[0]
       });
     } catch (error) {
       if (client) {

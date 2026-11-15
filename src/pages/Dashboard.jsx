@@ -16,7 +16,8 @@ function Icon({ name, size = 20 }) {
     close: <><path d="m6 6 12 12M18 6 6 18"/></>,
     eye: <><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></>,
     chart: <><path d="M3 3v18h18"/><path d="m7 14 4-4 4 3 6-7"/></>,
-    pin: <><path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></>
+    pin: <><path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></>,
+    message: <><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8A8.5 8.5 0 0 1 8.7 3.9a8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8z"/></>
   };
 
   return (
@@ -37,16 +38,16 @@ function Icon({ name, size = 20 }) {
 }
 
 function getDate(report) {
-  const value = report.submittedAt;
-  if (!value) return null;
-
-  const date = new Date(value);
+  if (!report?.submittedAt) return null;
+  const date = new Date(report.submittedAt);
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
 function formatDate(value) {
-  const date = getDate({ submittedAt: value });
-  if (!date) return value || "Not available";
+  if (!value) return "Not available";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Not available";
 
   return date.toLocaleString("en-IN", {
     day: "2-digit",
@@ -65,7 +66,11 @@ function StatusBadge({ status }) {
         ? "report-status rejected"
         : "report-status pending";
 
-  return <span className={className}>{status || "Pending Review"}</span>;
+  return (
+    <span className={className}>
+      {status || "Pending Review"}
+    </span>
+  );
 }
 
 export default function Dashboard() {
@@ -75,7 +80,12 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false);
   const [updatingId, setUpdatingId] = useState("");
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [selectedReport, setSelectedReport] = useState(null);
+
+  const [decisionReport, setDecisionReport] = useState(null);
+  const [decisionStatus, setDecisionStatus] = useState("");
+  const [remark, setRemark] = useState("");
 
   const token = localStorage.getItem("parksafeToken");
 
@@ -113,14 +123,38 @@ export default function Dashboard() {
     loadReports();
   }, []);
 
-  async function updateStatus(reportId, status) {
-    const action = status === "Approved" ? "approve" : "reject";
+  function openDecision(report, status) {
+    setDecisionReport(report);
+    setDecisionStatus(status);
+    setRemark("");
+    setError("");
+    setSuccess("");
+  }
 
-    if (!window.confirm(`Are you sure you want to ${action} this report?`)) {
+  function closeDecision() {
+    if (updatingId) return;
+
+    setDecisionReport(null);
+    setDecisionStatus("");
+    setRemark("");
+  }
+
+  async function submitDecision(e) {
+    e.preventDefault();
+
+    if (!decisionReport) return;
+
+    const cleanRemark = remark.trim();
+
+    if (cleanRemark.length > 1000) {
+      setError("Remark cannot exceed 1000 characters.");
       return;
     }
 
+    const reportId = decisionReport.reportId;
+
     setError("");
+    setSuccess("");
     setUpdatingId(reportId);
 
     try {
@@ -132,7 +166,10 @@ export default function Dashboard() {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`
           },
-          body: JSON.stringify({ status })
+          body: JSON.stringify({
+            status: decisionStatus,
+            remark: cleanRemark
+          })
         }
       );
 
@@ -142,13 +179,32 @@ export default function Dashboard() {
         throw new Error(data.message || "Status update failed");
       }
 
-      await loadReports();
+      const updatedReport = {
+        ...decisionReport,
+        status: decisionStatus,
+        authorityRemark: cleanRemark || null,
+        reviewedAt: data.report?.reviewedAt || new Date().toISOString()
+      };
+
+      setReports((current) =>
+        current.map((report) =>
+          report.reportId === reportId ? updatedReport : report
+        )
+      );
 
       setSelectedReport((current) =>
-        current?.reportId === reportId
-          ? { ...current, status }
-          : current
+        current?.reportId === reportId ? updatedReport : current
       );
+
+      setDecisionReport(null);
+      setDecisionStatus("");
+      setRemark("");
+
+      setSuccess(
+        `Report ${decisionStatus.toLowerCase()} successfully.`
+      );
+
+      await loadReports();
     } catch (err) {
       setError(err.message || "Status update failed");
     } finally {
@@ -199,19 +255,21 @@ export default function Dashboard() {
     const now = new Date();
 
     const todayStart = new Date(
-      now.getFullYear(), now.getMonth(), now.getDate()
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate()
     );
 
     const weekStart = new Date(todayStart);
     weekStart.setDate(weekStart.getDate() - 6);
 
     const monthStart = new Date(
-      now.getFullYear(), now.getMonth(), 1
+      now.getFullYear(),
+      now.getMonth(),
+      1
     );
 
-    const validDates = reports
-      .map(getDate)
-      .filter(Boolean);
+    const validDates = reports.map(getDate).filter(Boolean);
 
     return {
       today: validDates.filter((date) => date >= todayStart).length,
@@ -225,25 +283,29 @@ export default function Dashboard() {
       title: "Total Reports",
       value: reports.length,
       icon: "file",
-      theme: "purple"
+      theme: "purple",
+      description: "All submitted cases"
     },
     {
       title: "Pending Review",
       value: pending,
       icon: "clock",
-      theme: "orange"
+      theme: "orange",
+      description: "Require your attention"
     },
     {
       title: "Approved",
       value: approved,
       icon: "check",
-      theme: "green"
+      theme: "green",
+      description: "Verified violations"
     },
     {
       title: "Rejected",
       value: rejected,
       icon: "reject",
-      theme: "red"
+      theme: "red",
+      description: "Reports not accepted"
     }
   ];
 
@@ -257,6 +319,7 @@ export default function Dashboard() {
   return (
     <div className="authority-dashboard">
 
+      {/* DASHBOARD HEADER */}
       <div className="dashboard-welcome">
         <div>
           <span className="eyebrow">ADMINISTRATION / OVERVIEW</span>
@@ -271,41 +334,54 @@ export default function Dashboard() {
           onClick={loadReports}
           disabled={loading}
         >
-          <Icon name="refresh" size={17}/>
+          <Icon name="refresh" size={17} />
           {loading ? "Refreshing..." : "Refresh Data"}
         </button>
       </div>
 
       {error && (
-        <div className="dashboard-error">
+        <div className="dashboard-error" role="alert">
           {error}
         </div>
       )}
 
+      {success && (
+        <div className="dashboard-success" role="status">
+          {success}
+        </div>
+      )}
+
+      {/* STATISTICS */}
       <div className="dashboard-stats modern-stats">
         {statCards.map((stat) => (
-          <div className={`modern-stat-card ${stat.theme}`} key={stat.title}>
+          <div
+            className={`modern-stat-card ${stat.theme}`}
+            key={stat.title}
+          >
             <div className="stat-top">
               <span>{stat.title}</span>
               <div className="stat-icon">
-                <Icon name={stat.icon} size={21}/>
+                <Icon name={stat.icon} size={21} />
               </div>
             </div>
+
             <strong className="stat-number">{stat.value}</strong>
-            <small>Live report records</small>
+            <small>{stat.description}</small>
           </div>
         ))}
       </div>
 
+      {/* ANALYTICS */}
       <section className="analytics-panel">
         <div className="panel-heading">
           <div>
             <span className="eyebrow">REPORT ACTIVITY</span>
             <h2>Analytics Overview</h2>
-            <p>Report submissions across different time periods.</p>
+            <p>Understand reporting activity across different periods.</p>
           </div>
+
           <div className="analytics-icon">
-            <Icon name="chart" size={23}/>
+            <Icon name="chart" size={23} />
           </div>
         </div>
 
@@ -320,6 +396,7 @@ export default function Dashboard() {
                 <span>{item.label}</span>
                 <strong>{item.value}</strong>
               </div>
+
               <div className="analytics-track">
                 <div
                   className={`analytics-fill ${item.color}`}
@@ -328,19 +405,22 @@ export default function Dashboard() {
                   }}
                 />
               </div>
+
               <small>Submitted reports</small>
             </div>
           ))}
         </div>
       </section>
 
+      {/* CASE MANAGEMENT */}
       <section className="reports-panel">
         <div className="panel-heading reports-panel-heading">
           <div>
             <span className="eyebrow">CASE MANAGEMENT</span>
             <h2>Violation Reports</h2>
-            <p>Search and review all submitted parking violations.</p>
+            <p>Search, inspect and make decisions on submitted reports.</p>
           </div>
+
           <div className="report-count">
             {filteredReports.length} results
           </div>
@@ -348,7 +428,7 @@ export default function Dashboard() {
 
         <div className="report-toolbar">
           <div className="report-search">
-            <Icon name="search" size={19}/>
+            <Icon name="search" size={19} />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -372,13 +452,17 @@ export default function Dashboard() {
 
         {loading && reports.length === 0 ? (
           <div className="dashboard-empty">
-            <div className="empty-icon"><Icon name="refresh" size={26}/></div>
+            <div className="empty-icon">
+              <Icon name="refresh" size={26} />
+            </div>
             <h3>Loading reports...</h3>
             <p>Please wait while we fetch the latest records.</p>
           </div>
         ) : filteredReports.length === 0 ? (
           <div className="dashboard-empty">
-            <div className="empty-icon"><Icon name="file" size={26}/></div>
+            <div className="empty-icon">
+              <Icon name="file" size={26} />
+            </div>
             <h3>No reports found</h3>
             <p>
               {search || filter !== "All"
@@ -391,12 +475,18 @@ export default function Dashboard() {
             {filteredReports.map((report) => (
               <article className="report-item" key={report.reportId}>
                 <div className="report-item-main">
+
                   <div className="report-item-heading">
                     <div>
-                      <span className="report-id">{report.reportId}</span>
-                      <h3>{report.violationType || "Parking Violation"}</h3>
+                      <span className="report-id">
+                        {report.reportId}
+                      </span>
+                      <h3>
+                        {report.violationType || "Parking Violation"}
+                      </h3>
                     </div>
-                    <StatusBadge status={report.status}/>
+
+                    <StatusBadge status={report.status} />
                   </div>
 
                   <div className="report-meta-grid">
@@ -404,26 +494,39 @@ export default function Dashboard() {
                       <span>Submitted By</span>
                       <strong>{report.userName || "Not available"}</strong>
                     </div>
+
                     <div>
                       <span>Mobile Number</span>
                       <strong>{report.userMobile || "Not available"}</strong>
                     </div>
+
                     <div>
                       <span>Location</span>
                       <strong>{report.location || "Not available"}</strong>
                     </div>
+
                     <div>
                       <span>Submitted On</span>
                       <strong>{formatDate(report.submittedAt)}</strong>
                     </div>
                   </div>
 
+                  {report.authorityRemark && (
+                    <div className="report-remark-preview">
+                      <Icon name="message" size={17} />
+                      <div>
+                        <strong>Authority Remark</strong>
+                        <p>{report.authorityRemark}</p>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="report-item-footer">
                     <button
                       className="view-report-button"
                       onClick={() => setSelectedReport(report)}
                     >
-                      <Icon name="eye" size={17}/>
+                      <Icon name="eye" size={17} />
                       View Details
                     </button>
 
@@ -431,15 +534,15 @@ export default function Dashboard() {
                       <div className="report-actions">
                         <button
                           className="approve-button"
-                          onClick={() => updateStatus(report.reportId, "Approved")}
+                          onClick={() => openDecision(report, "Approved")}
                           disabled={updatingId === report.reportId}
                         >
-                          {updatingId === report.reportId ? "Updating..." : "Approve"}
+                          Approve
                         </button>
 
                         <button
                           className="reject-button"
-                          onClick={() => updateStatus(report.reportId, "Rejected")}
+                          onClick={() => openDecision(report, "Rejected")}
                           disabled={updatingId === report.reportId}
                         >
                           Reject
@@ -454,11 +557,14 @@ export default function Dashboard() {
         )}
       </section>
 
+      {/* REPORT DETAILS MODAL */}
       {selectedReport && (
         <div
           className="report-modal-backdrop"
           onMouseDown={(e) => {
-            if (e.target === e.currentTarget) setSelectedReport(null);
+            if (e.target === e.currentTarget) {
+              setSelectedReport(null);
+            }
           }}
         >
           <div className="report-modal">
@@ -467,34 +573,41 @@ export default function Dashboard() {
                 <span className="eyebrow">REPORT DETAILS</span>
                 <h2>{selectedReport.reportId}</h2>
               </div>
+
               <button
                 className="modal-close"
                 onClick={() => setSelectedReport(null)}
                 aria-label="Close report details"
               >
-                <Icon name="close" size={21}/>
+                <Icon name="close" size={21} />
               </button>
             </div>
 
             <div className="report-modal-content">
               <div className="modal-status-row">
                 <span>Current Status</span>
-                <StatusBadge status={selectedReport.status}/>
+                <StatusBadge status={selectedReport.status} />
               </div>
 
               <h3>Violation Information</h3>
               <div className="detail-grid">
                 <div>
                   <span>Violation Type</span>
-                  <strong>{selectedReport.violationType || "Not available"}</strong>
+                  <strong>
+                    {selectedReport.violationType || "Not available"}
+                  </strong>
                 </div>
+
                 <div>
                   <span>Submitted Date</span>
                   <strong>{formatDate(selectedReport.submittedAt)}</strong>
                 </div>
+
                 <div className="detail-full">
                   <span>Description</span>
-                  <strong>{selectedReport.description || "No description provided"}</strong>
+                  <strong>
+                    {selectedReport.description || "No description provided"}
+                  </strong>
                 </div>
               </div>
 
@@ -504,6 +617,7 @@ export default function Dashboard() {
                   <span>Name</span>
                   <strong>{selectedReport.userName || "Not available"}</strong>
                 </div>
+
                 <div>
                   <span>Mobile</span>
                   <strong>{selectedReport.userMobile || "Not available"}</strong>
@@ -516,13 +630,19 @@ export default function Dashboard() {
                   <span>Address / Location</span>
                   <strong>{selectedReport.location || "Not available"}</strong>
                 </div>
+
                 <div className="detail-full">
                   <span>GPS Coordinates</span>
-                  <strong>{selectedReport.coordinates || "Not available"}</strong>
+                  <strong>
+                    {selectedReport.coordinates || "Not available"}
+                  </strong>
                 </div>
+
                 <div className="detail-full">
                   <span>Evidence File</span>
-                  <strong>{selectedReport.fileName || "No evidence filename recorded"}</strong>
+                  <strong>
+                    {selectedReport.fileName || "No evidence filename recorded"}
+                  </strong>
                 </div>
               </div>
 
@@ -533,14 +653,36 @@ export default function Dashboard() {
                   target="_blank"
                   rel="noreferrer"
                 >
-                  <Icon name="map" size={17}/>
+                  <Icon name="map" size={17} />
                   Open location in Google Maps
                 </a>
               )}
 
+              {selectedReport.authorityRemark && (
+                <div className="report-remark-preview detail-remark">
+                  <Icon name="message" size={18} />
+                  <div>
+                    <strong>Authority's Review Remark</strong>
+                    <p>{selectedReport.authorityRemark}</p>
+
+                    {selectedReport.reviewedAt && (
+                      <small>
+                        Reviewed on {formatDate(selectedReport.reviewedAt)}
+                      </small>
+                    )}
+
+                    {selectedReport.reviewedByName && (
+                      <small>
+                        Reviewed by {selectedReport.reviewedByName}
+                      </small>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <p className="evidence-note">
-                Evidence preview is not available yet. The current prototype stores
-                the submitted filename only, not the actual photo or video.
+                Evidence preview is not available yet. The current prototype
+                stores the submitted filename only, not the actual photo or video.
               </p>
             </div>
 
@@ -548,15 +690,14 @@ export default function Dashboard() {
               <div className="report-modal-actions">
                 <button
                   className="approve-button"
-                  disabled={updatingId === selectedReport.reportId}
-                  onClick={() => updateStatus(selectedReport.reportId, "Approved")}
+                  onClick={() => openDecision(selectedReport, "Approved")}
                 >
                   Approve Report
                 </button>
+
                 <button
                   className="reject-button"
-                  disabled={updatingId === selectedReport.reportId}
-                  onClick={() => updateStatus(selectedReport.reportId, "Rejected")}
+                  onClick={() => openDecision(selectedReport, "Rejected")}
                 >
                   Reject Report
                 </button>
@@ -565,7 +706,98 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      {/* APPROVE / REJECT REMARK MODAL */}
+      {decisionReport && (
+        <div
+          className="report-modal-backdrop decision-backdrop"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) closeDecision();
+          }}
+        >
+          <div className="report-modal decision-modal">
+            <div className="report-modal-header">
+              <div>
+                <span className="eyebrow">AUTHORITY REVIEW</span>
+                <h2>
+                  {decisionStatus === "Approved"
+                    ? "Approve Report"
+                    : "Reject Report"}
+                </h2>
+              </div>
+
+              <button
+                className="modal-close"
+                onClick={closeDecision}
+                disabled={Boolean(updatingId)}
+                aria-label="Close review dialog"
+              >
+                <Icon name="close" size={21} />
+              </button>
+            </div>
+
+            <form onSubmit={submitDecision}>
+              <div className="report-modal-content">
+                <p className="decision-report-id">
+                  Report ID: <strong>{decisionReport.reportId}</strong>
+                </p>
+
+                <div className={`decision-notice ${decisionStatus === "Rejected" ? "reject-notice" : "approve-notice"}`}>
+                  {decisionStatus === "Rejected"
+                    ? "You may add an optional remark explaining the reason for rejecting this report."
+                    : "You may add an optional remark explaining this approval."}
+                </div>
+
+                <label className="remark-label" htmlFor="authority-remark">
+                  Authority Remark <span className="optional-mark">(Optional)</span>
+                </label>
+
+                <textarea
+                  id="authority-remark"
+                  className="authority-remark-input"
+                  value={remark}
+                  onChange={(e) => setRemark(e.target.value)}
+                  placeholder="Add an optional remark..."
+                  rows={5}
+                  maxLength={1000}
+                  disabled={Boolean(updatingId)}
+                />
+
+                <div className="remark-character-count">
+                  {remark.length}/1000 characters
+                </div>
+              </div>
+
+              <div className="report-modal-actions decision-actions">
+                <button
+                  type="button"
+                  className="view-report-button"
+                  onClick={closeDecision}
+                  disabled={Boolean(updatingId)}
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  className={
+                    decisionStatus === "Approved"
+                      ? "approve-button"
+                      : "reject-button"
+                  }
+                  disabled={Boolean(updatingId)}
+                >
+                  {updatingId
+                    ? "Saving..."
+                    : decisionStatus === "Approved"
+                      ? "Confirm Approval"
+                      : "Confirm Rejection"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-  

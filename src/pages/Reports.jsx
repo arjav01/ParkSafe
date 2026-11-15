@@ -29,14 +29,11 @@ export default function Reports() {
     setError("");
 
     try {
-      const response = await fetch(
-        `${API_URL}/api/reports/my`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
+      const response = await fetch(`${API_URL}/api/reports/my`, {
+        headers: {
+          Authorization: `Bearer ${token}`
         }
-      );
+      });
 
       const data = await response.json();
 
@@ -80,7 +77,7 @@ export default function Reports() {
     );
   }
 
-  // SUBMIT REPORT TO SQLITE DATABASE
+  // SUBMIT REPORT
   async function submitReport(e) {
     e.preventDefault();
 
@@ -95,23 +92,20 @@ export default function Reports() {
     setSubmitting(true);
 
     try {
-      const response = await fetch(
-        `${API_URL}/api/reports`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            violationType,
-            description,
-            location,
-            coordinates,
-            fileName: file ? file.name : "No attachment"
-          })
-        }
-      );
+      const response = await fetch(`${API_URL}/api/reports`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          violationType,
+          description,
+          location,
+          coordinates,
+          fileName: file ? file.name : "No attachment"
+        })
+      });
 
       const data = await response.json();
 
@@ -142,6 +136,16 @@ export default function Reports() {
     if (status === "Approved") return "#16a34a";
     if (status === "Rejected") return "#dc2626";
     return "#d97706";
+  }
+
+  // GET AUTHORITY REMARK
+  function getAuthorityRemark(report) {
+    return (
+      report.remark ||
+      report.authorityRemark ||
+      report.authority_remark ||
+      ""
+    );
   }
 
   return (
@@ -272,48 +276,96 @@ export default function Reports() {
         </div>
       )}
 
-      {reports.map((report) => (
-        <div className="result-card" key={report.reportId}>
+      {/* REPORT HISTORY CARDS */}
+      {reports.map((report) => {
+        const authorityRemark = getAuthorityRemark(report);
 
-          <span
-            style={{
-              color: statusColor(report.status),
-              fontWeight: "bold"
-            }}
-          >
-            ● {report.status}
-          </span>
+        return (
+          <div className="result-card" key={report.reportId}>
 
-          <h2>{report.reportId}</h2>
+            <span
+              style={{
+                color: statusColor(report.status),
+                fontWeight: "bold"
+              }}
+            >
+              ● {report.status}
+            </span>
 
-          <p>
-            <strong>Violation:</strong> {report.violationType}
-          </p>
+            {/* AUTHORITY REMARK */}
+            {(report.status === "Approved" ||
+              report.status === "Rejected") && (
+              <div
+                style={{
+                  marginTop: "18px",
+                  marginBottom: "20px",
+                  padding: "16px",
+                  borderRadius: "12px",
+                  background: report.status === "Approved"
+                    ? "#f0fdf4"
+                    : "#fef2f2",
+                  border: `1px solid ${
+                    report.status === "Approved" ? "#bbf7d0" : "#fecaca"
+                  }`
+                }}
+              >
+                <h3
+                  style={{
+                    margin: "0 0 8px",
+                    color: report.status === "Approved"
+                      ? "#15803d"
+                      : "#b91c1c",
+                    fontSize: "16px"
+                  }}
+                >
+                  Authority's Remark
+                </h3>
 
-          <p>
-            <strong>Location:</strong> {report.location}
-          </p>
+                <p
+                  style={{
+                    margin: 0,
+                    color: "#334155",
+                    lineHeight: "1.6",
+                    whiteSpace: "pre-wrap"
+                  }}
+                >
+                  {authorityRemark ||
+                    "No remark was provided by the authority."}
+                </p>
+              </div>
+            )}
 
-          <p>
-            <strong>Submitted:</strong> {report.submittedAt}
-          </p>
+            <h2>{report.reportId}</h2>
 
-          <p>
-            <strong>Description:</strong> {report.description}
-          </p>
-
-          <p>
-            <strong>Evidence:</strong> {report.fileName}
-          </p>
-
-          {report.coordinates && (
             <p>
-              <strong>GPS:</strong> {report.coordinates}
+              <strong>Violation:</strong> {report.violationType}
             </p>
-          )}
 
-        </div>
-      ))}
+            <p>
+              <strong>Location:</strong> {report.location}
+            </p>
+
+            <p>
+              <strong>Submitted:</strong> {report.submittedAt}
+            </p>
+
+            <p>
+              <strong>Description:</strong> {report.description}
+            </p>
+
+            <p>
+              <strong>Evidence:</strong> {report.fileName}
+            </p>
+
+            {report.coordinates && (
+              <p>
+                <strong>GPS:</strong> {report.coordinates}
+              </p>
+            )}
+
+          </div>
+        );
+      })}
     </div>
   );
 }
