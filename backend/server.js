@@ -173,6 +173,21 @@ async function logLogin(
           null
       ]
     );
+
+    const { data: buckets, error: bucketError } =
+  await supabase.storage.listBuckets();
+
+if (bucketError) {
+  console.error(
+    "STORAGE CONNECTION ERROR:",
+    bucketError.message
+  );
+} else {
+  console.log(
+    "STORAGE BUCKETS:",
+    buckets.map((bucket) => bucket.name)
+  );
+}
   } catch (error) {
     console.error(
       "Login activity logging failed:",
