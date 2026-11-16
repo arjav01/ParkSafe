@@ -2342,8 +2342,14 @@ app.get(
 
               r.status,
 
-              r.submitted_at
-                AS "submittedAt"
+r.authority_remark
+  AS "authorityRemark",
+
+r.reviewed_at
+  AS "reviewedAt",
+
+r.submitted_at
+  AS "submittedAt"
 
             FROM public.reports r
 
