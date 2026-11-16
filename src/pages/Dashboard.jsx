@@ -625,65 +625,297 @@ export default function Dashboard() {
               </div>
 
               <h3>Location & Evidence</h3>
-              <div className="detail-grid">
-                <div className="detail-full">
-                  <span>Address / Location</span>
-                  <strong>{selectedReport.location || "Not available"}</strong>
-                </div>
 
-                <div className="detail-full">
-                  <span>GPS Coordinates</span>
-                  <strong>
-                    {selectedReport.coordinates || "Not available"}
-                  </strong>
-                </div>
+<div className="detail-grid">
 
-                <div className="detail-full">
-                  <span>Evidence File</span>
-                  <strong>
-                    {selectedReport.fileName || "No evidence filename recorded"}
-                  </strong>
-                </div>
-              </div>
+  <div className="detail-full">
+    <span>Address / Location</span>
 
-              {selectedReport.coordinates && (
-                <a
-                  className="map-link"
-                  href={`https://www.google.com/maps?q=${encodeURIComponent(selectedReport.coordinates)}`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  <Icon name="map" size={17} />
-                  Open location in Google Maps
-                </a>
-              )}
+    <strong>
+      {selectedReport.location || "Not available"}
+    </strong>
+  </div>
 
-              {selectedReport.authorityRemark && (
-                <div className="report-remark-preview detail-remark">
-                  <Icon name="message" size={18} />
-                  <div>
-                    <strong>Authority's Review Remark</strong>
-                    <p>{selectedReport.authorityRemark}</p>
+  <div className="detail-full">
+    <span>GPS Coordinates</span>
 
-                    {selectedReport.reviewedAt && (
-                      <small>
-                        Reviewed on {formatDate(selectedReport.reviewedAt)}
-                      </small>
-                    )}
+    <strong>
+      {selectedReport.coordinates || "Not available"}
+    </strong>
+  </div>
 
-                    {selectedReport.reviewedByName && (
-                      <small>
-                        Reviewed by {selectedReport.reviewedByName}
-                      </small>
-                    )}
-                  </div>
-                </div>
-              )}
+  <div className="detail-full">
+    <span>Evidence File</span>
 
-              <p className="evidence-note">
-                Evidence preview is not available yet. The current prototype
-                stores the submitted filename only, not the actual photo or video.
-              </p>
+    <strong>
+      {selectedReport.fileName || "No evidence attached"}
+    </strong>
+  </div>
+
+  {selectedReport.evidenceType && (
+    <div>
+      <span>Evidence Type</span>
+
+      <strong>
+        {selectedReport.evidenceType.startsWith("image/")
+          ? "Photo Evidence"
+          : selectedReport.evidenceType.startsWith("video/")
+          ? "Video Evidence"
+          : selectedReport.evidenceType}
+      </strong>
+    </div>
+  )}
+
+  {selectedReport.evidenceSize && (
+    <div>
+      <span>File Size</span>
+
+      <strong>
+        {(Number(selectedReport.evidenceSize) / (1024 * 1024)).toFixed(2)} MB
+      </strong>
+    </div>
+  )}
+
+</div>
+
+{/* GPS MAP */}
+
+{selectedReport.coordinates && (
+  <a
+    className="map-link"
+    href={`https://www.google.com/maps?q=${encodeURIComponent(
+      selectedReport.coordinates
+    )}`}
+    target="_blank"
+    rel="noreferrer"
+  >
+    <Icon name="map" size={17} />
+    Open location in Google Maps
+  </a>
+)}
+
+{/* =====================================
+    ACTUAL EVIDENCE PREVIEW
+===================================== */}
+
+{selectedReport.evidenceUrl ? (
+  <div className="authority-evidence-section">
+
+    <div className="authority-evidence-heading">
+
+      <div>
+        <span className="eyebrow">
+          SECURE EVIDENCE
+        </span>
+
+        <h3>
+          Submitted Evidence
+        </h3>
+
+        <p>
+          Evidence uploaded by the reporting user.
+        </p>
+      </div>
+
+      <span className="authority-evidence-secure">
+        <span />
+        PRIVATE
+      </span>
+
+    </div>
+
+    {/* IMAGE */}
+
+    {selectedReport.evidenceType?.startsWith("image/") && (
+      <div className="authority-image-preview">
+
+        <img
+          src={selectedReport.evidenceUrl}
+          alt={`Evidence for ${selectedReport.reportId}`}
+        />
+
+        <div className="authority-evidence-overlay">
+
+          <span>
+            PHOTO EVIDENCE
+          </span>
+
+          <strong>
+            {selectedReport.fileName}
+          </strong>
+
+        </div>
+
+      </div>
+    )}
+
+    {/* VIDEO */}
+
+    {selectedReport.evidenceType?.startsWith("video/") && (
+      <div className="authority-video-preview">
+
+        <video
+          controls
+          preload="metadata"
+          src={selectedReport.evidenceUrl}
+        >
+          Your browser does not support video playback.
+        </video>
+
+        <div className="authority-video-information">
+
+          <span>
+            VIDEO EVIDENCE
+          </span>
+
+          <strong>
+            {selectedReport.fileName}
+          </strong>
+
+        </div>
+
+      </div>
+    )}
+
+    {/* UNKNOWN TYPE */}
+
+    {!selectedReport.evidenceType?.startsWith("image/") &&
+      !selectedReport.evidenceType?.startsWith("video/") && (
+        <div className="authority-unknown-evidence">
+
+          <Icon name="file" size={25} />
+
+          <div>
+            <strong>
+              Evidence Attached
+            </strong>
+
+            <p>
+              {selectedReport.fileName}
+            </p>
+          </div>
+
+        </div>
+      )}
+
+    {/* FILE INFORMATION */}
+
+    <div className="authority-evidence-info">
+
+      <div>
+        <span>
+          FILE NAME
+        </span>
+
+        <strong>
+          {selectedReport.fileName || "Evidence"}
+        </strong>
+      </div>
+
+      <div>
+        <span>
+          TYPE
+        </span>
+
+        <strong>
+          {selectedReport.evidenceType || "Unknown"}
+        </strong>
+      </div>
+
+      <div>
+        <span>
+          SIZE
+        </span>
+
+        <strong>
+          {selectedReport.evidenceSize
+            ? `${(
+                Number(selectedReport.evidenceSize) /
+                (1024 * 1024)
+              ).toFixed(2)} MB`
+            : "Not available"}
+        </strong>
+      </div>
+
+    </div>
+
+    {/* FULL VIEW */}
+
+    <a
+      href={selectedReport.evidenceUrl}
+      target="_blank"
+      rel="noreferrer"
+      className="authority-view-evidence-button"
+    >
+      <Icon name="eye" size={18} />
+
+      View Full Evidence
+
+      <span>
+        ↗
+      </span>
+    </a>
+
+    <p className="authority-evidence-expiry">
+      🔒 Evidence is securely loaded using a temporary
+      private access link. Refresh reports if the link expires.
+    </p>
+
+  </div>
+) : (
+  <div className="authority-no-evidence">
+
+    <div className="authority-no-evidence-icon">
+      <Icon name="file" size={23} />
+    </div>
+
+    <div>
+      <strong>
+        No Evidence Attached
+      </strong>
+
+      <p>
+        This report does not contain uploaded photo
+        or video evidence.
+      </p>
+    </div>
+
+  </div>
+)}
+
+{/* AUTHORITY REMARK */}
+
+{selectedReport.authorityRemark && (
+  <div className="report-remark-preview detail-remark">
+
+    <Icon name="message" size={18} />
+
+    <div>
+      <strong>
+        Authority's Review Remark
+      </strong>
+
+      <p>
+        {selectedReport.authorityRemark}
+      </p>
+
+      {selectedReport.reviewedAt && (
+        <small>
+          Reviewed on{" "}
+          {formatDate(selectedReport.reviewedAt)}
+        </small>
+      )}
+
+      {selectedReport.reviewedByName && (
+        <small>
+          Reviewed by{" "}
+          {selectedReport.reviewedByName}
+        </small>
+      )}
+    </div>
+
+  </div>
+)}
             </div>
 
             {selectedReport.status === "Pending Review" && (
