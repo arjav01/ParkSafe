@@ -2490,6 +2490,10 @@ app.get(
    AUTHORITY UPDATE REPORT STATUS
 ===================================================== */
 
+// ==========================================
+// AUTHORITY UPDATE REPORT STATUS + REMARK
+// ==========================================
+
 app.patch(
   "/api/reports/:reportId/status",
   ...requireAuthority,
@@ -2498,7 +2502,8 @@ app.patch(
 
     try {
       const {
-        status
+        status,
+        remark
       } = req.body;
 
       if (
@@ -2516,6 +2521,24 @@ app.patch(
           });
       }
 
+      const cleanRemark =
+        typeof remark === "string"
+          ? remark.trim()
+          : "";
+
+      if (
+        cleanRemark.length >
+        1000
+      ) {
+        return res
+          .status(400)
+          .json({
+            success: false,
+            message:
+              "Authority remark cannot exceed 1000 characters"
+          });
+      }
+
       client =
         await db.connect();
 
@@ -2527,12 +2550,32 @@ app.patch(
         await client.query(
           `
             UPDATE public.reports
-            SET status = $1
-            WHERE report_id = $2
-            RETURNING report_id
+
+            SET
+              status = $1,
+
+              authority_remark = $2,
+
+              reviewed_at = NOW()
+
+            WHERE
+              report_id = $3
+
+            RETURNING
+              report_id
+                AS "reportId",
+
+              status,
+
+              authority_remark
+                AS "authorityRemark",
+
+              reviewed_at
+                AS "reviewedAt"
           `,
           [
             status,
+            cleanRemark || null,
             req.params.reportId
           ]
         );
@@ -2553,6 +2596,9 @@ app.patch(
           });
       }
 
+      const updatedReport =
+        result.rows[0];
+
       await client.query(
         `
           INSERT INTO public.audit_logs
@@ -2563,6 +2609,7 @@ app.patch(
             entity_id,
             details
           )
+
           VALUES
           ($1,$2,$3,$4,$5)
         `,
@@ -2576,7 +2623,9 @@ app.patch(
           req.params.reportId,
 
           JSON.stringify({
-            status
+            status,
+            remark:
+              cleanRemark || null
           })
         ]
       );
@@ -2587,8 +2636,12 @@ app.patch(
 
       res.json({
         success: true,
+
         message:
-          "Report status updated successfully"
+          `Report ${status.toLowerCase()} successfully`,
+
+        report:
+          updatedReport
       });
     } catch (error) {
       if (client) {
