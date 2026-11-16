@@ -2839,6 +2839,100 @@ export default function Reports() {
 
                       </div>
                     )}
+                    {/* AUTHORITY REVIEW / REMARK */}
+
+{(report.status === "Approved" ||
+  report.status === "Rejected") && (
+  <div
+    className={`user-authority-review ${
+      report.status === "Approved"
+        ? "approved"
+        : "rejected"
+    }`}
+  >
+    <div className="user-authority-review-icon">
+      {report.status === "Approved"
+        ? "✓"
+        : "×"}
+    </div>
+
+    <div className="user-authority-review-content">
+
+      <div className="user-authority-review-heading">
+
+        <div>
+          <span>
+            AUTHORITY REVIEW
+          </span>
+
+          <strong>
+            {report.status === "Approved"
+              ? "Report Approved"
+              : "Report Rejected"}
+          </strong>
+        </div>
+
+        <span
+          className={`user-review-status ${
+            report.status === "Approved"
+              ? "approved"
+              : "rejected"
+          }`}
+        >
+          {report.status}
+        </span>
+
+      </div>
+
+      {report.authorityRemark ? (
+        <div className="user-authority-remark">
+
+          <span>
+            AUTHORITY REMARK
+          </span>
+
+          <p>
+            “{report.authorityRemark}”
+          </p>
+
+        </div>
+      ) : (
+        <div className="user-authority-remark no-remark">
+
+          <span>
+            AUTHORITY REMARK
+          </span>
+
+          <p>
+            No additional remark was provided
+            by the reviewing authority.
+          </p>
+
+        </div>
+      )}
+
+      {report.reviewedAt && (
+        <div className="user-review-time">
+
+          <span>
+            ◷
+          </span>
+
+          Reviewed on{" "}
+
+          <strong>
+            {formatDate(
+              report.reviewedAt
+            )}
+          </strong>
+
+        </div>
+      )}
+
+    </div>
+
+  </div>
+)}
 
                     <div className="history-card-footer">
 
