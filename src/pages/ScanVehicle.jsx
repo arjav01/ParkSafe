@@ -1,219 +1,308 @@
+import {
+  useEffect,
+  useState
+} from "react";
 
-import { useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import {
+  useParams,
+  Link,
+  useNavigate
+} from "react-router-dom";
 
-const demoVehicles = {
-  "PS-DEMO-1001": {
-    vehicleNumber: "UK01AB1234",
-    vehicleModel: "Hyundai Creta",
-    vehicleType: "Car",
-  },
-  "PS-DEMO-1002": {
-    vehicleNumber: "UK07CD5678",
-    vehicleModel: "Honda Activa",
-    vehicleType: "Scooter",
-  },
-};
-
-const issueTypes = [
-  "Parked in a No Parking Zone",
-  "Blocking an Entrance or Gate",
-  "Blocking a Road or Pathway",
-  "Wrongly Parked",
-  "Other Parking Issue",
-];
+const API_URL =
+  "https://parksafe-backend-s51i.onrender.com";
 
 export default function ScanVehicle() {
   const { id } = useParams();
-  const vehicle = demoVehicles[id];
+  const navigate = useNavigate();
 
-  const [showReportForm, setShowReportForm] = useState(false);
-  const [issueType, setIssueType] = useState(issueTypes[0]);
-  const [description, setDescription] = useState("");
-  const [submitted, setSubmitted] = useState(false);
-  const [error, setError] = useState("");
+  const [
+    vehicle,
+    setVehicle
+  ] = useState(null);
 
-  const handleReportSubmit = (e) => {
-    e.preventDefault();
+  const [
+    loading,
+    setLoading
+  ] = useState(true);
 
-    if (!description.trim()) {
-      setError("Please describe the parking issue.");
-      return;
+  const [
+    error,
+    setError
+  ] = useState("");
+
+  /* ==========================================
+     LOAD VEHICLE FROM REAL DATABASE
+  ========================================== */
+
+  useEffect(() => {
+    async function loadVehicle() {
+      if (!id) {
+        setError(
+          "Invalid ParkSafe QR code."
+        );
+
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      setError("");
+
+      try {
+        const response =
+          await fetch(
+            `${API_URL}/api/vehicles/qr/${encodeURIComponent(
+              id
+            )}`
+          );
+
+        const data =
+          await response.json();
+
+        if (
+          !response.ok ||
+          !data.success
+        ) {
+          throw new Error(
+            data.message ||
+              "Vehicle not found."
+          );
+        }
+
+        setVehicle(
+          data.vehicle
+        );
+      } catch (err) {
+        setVehicle(null);
+
+        setError(
+          err.message ===
+            "Failed to fetch"
+            ? "Unable to connect to ParkSafe."
+            : err.message ||
+                "Vehicle not found."
+        );
+      } finally {
+        setLoading(false);
+      }
     }
 
-    // Demonstration only: no report is sent to the backend yet.
-    setSubmitted(true);
-    setError("");
-  };
+    loadVehicle();
+  }, [id]);
+
+  /* ==========================================
+     LOADING
+  ========================================== */
+
+  if (loading) {
+    return (
+      <main className="scan-page">
+
+        <section className="scan-card">
+
+          <div className="scan-brand">
+            P
+          </div>
+
+          <h1>
+            ParkSafe
+          </h1>
+
+          <p className="scan-subtitle">
+            Smart Parking Assistance
+          </p>
+
+          <div className="scan-success">
+            VERIFYING QR
+          </div>
+
+          <h2>
+            Identifying Vehicle...
+          </h2>
+
+          <p className="scan-message">
+            Please wait while ParkSafe
+            verifies this vehicle.
+          </p>
+
+        </section>
+
+      </main>
+    );
+  }
+
+  /* ==========================================
+     NOT FOUND
+  ========================================== */
+
+  if (!vehicle) {
+    return (
+      <main className="scan-page">
+
+        <section className="scan-card">
+
+          <div className="scan-brand">
+            P
+          </div>
+
+          <h1>
+            ParkSafe
+          </h1>
+
+          <p className="scan-subtitle">
+            Smart Parking Assistance
+          </p>
+
+          <h2>
+            Vehicle Not Found
+          </h2>
+
+          <p className="scan-message">
+            {error ||
+              "This QR code does not match a registered ParkSafe vehicle."}
+          </p>
+
+          <Link
+            to="/vehicles/search"
+            className="scan-secondary-button"
+          >
+            Search Vehicle
+          </Link>
+
+          <p className="scan-footer">
+            ParkSafe · Smarter Parking,
+            Better Roads
+          </p>
+
+        </section>
+
+      </main>
+    );
+  }
+
+  /* ==========================================
+     VEHICLE FOUND
+  ========================================== */
 
   return (
     <main className="scan-page">
-      <section className="scan-card">
-        <div className="scan-brand">P</div>
 
-        <h1>Park Safe</h1>
+      <section className="scan-card">
+
+        <div className="scan-brand">
+          P
+        </div>
+
+        <h1>
+          ParkSafe
+        </h1>
 
         <p className="scan-subtitle">
           Smart Parking Assistance
         </p>
 
-        {!vehicle ? (
-          <>
-            <h2>Vehicle Not Found</h2>
+        <div className="scan-success">
+          ✓ QR CODE VERIFIED
+        </div>
 
-            <p className="scan-message">
-              This QR code does not match a recognised
-              demonstration vehicle.
-            </p>
-          </>
-        ) : submitted ? (
-          <>
-            <div className="scan-success">
-              Report Submitted
-            </div>
+        <div
+          style={{
+            fontSize: "42px",
+            margin: "20px 0 10px"
+          }}
+        >
+          🚘
+        </div>
 
-            <div className="report-success-icon">✓</div>
+        <h2>
+          {vehicle.vehicleModel ||
+            "Registered Vehicle"}
+        </h2>
 
-            <h2>Thank You!</h2>
+        <p className="scan-registration">
+          {vehicle.vehicleNumber}
+        </p>
 
-            <p className="scan-message">
-              Your parking issue report has been recorded
-              in this demonstration session.
-            </p>
+        <div className="scan-details">
 
-            <div className="scan-details">
-              <span>Vehicle</span>
-              <strong>{vehicle.vehicleNumber}</strong>
-            </div>
+          <span>
+            Vehicle Type
+          </span>
 
-            <div className="scan-details">
-              <span>Issue</span>
-              <strong>{issueType}</strong>
-            </div>
+          <strong>
+            {vehicle.vehicleType ||
+              "Vehicle"}
+          </strong>
 
-            <button
-              type="button"
-              className="scan-secondary-button"
-              onClick={() => {
-                setSubmitted(false);
-                setShowReportForm(false);
-                setDescription("");
-                setIssueType(issueTypes[0]);
-              }}
-            >
-              Back to Vehicle Details
-            </button>
-          </>
-        ) : (
-          <>
-            <div className="scan-success">
-              QR Code Recognised
-            </div>
+        </div>
 
-            <h2>{vehicle.vehicleModel}</h2>
+        <div className="scan-details">
 
-            <p className="scan-registration">
-              {vehicle.vehicleNumber}
-            </p>
+          <span>
+            Status
+          </span>
 
-            <div className="scan-details">
-              <span>Vehicle Type</span>
-              <strong>{vehicle.vehicleType}</strong>
-            </div>
+          <strong>
+            {vehicle.status ||
+              "Active"}
+          </strong>
 
-            {!showReportForm ? (
-              <>
-                <p className="scan-message">
-                  Have you noticed a parking issue involving
-                  this vehicle? You can notify its owner
-                  through Park Safe.
-                </p>
+        </div>
 
-                <button
-                  type="button"
-                  className="scan-report-button"
-                  onClick={() => setShowReportForm(true)}
-                >
-                  Report Parking Issue
-                </button>
-              </>
-            ) : (
-              <form
-                className="scan-report-form"
-                onSubmit={handleReportSubmit}
-              >
-                <h3>Report a Parking Issue</h3>
+        {vehicle.ownerReference && (
+          <div className="scan-details">
 
-                <p>
-                  Tell us what is wrong with this vehicle's
-                  parking.
-                </p>
+            <span>
+              Owner Reference
+            </span>
 
-                <label htmlFor="issue-type">
-                  Type of Issue
-                </label>
+            <strong>
+              {vehicle.ownerReference}
+            </strong>
 
-                <select
-                  id="issue-type"
-                  value={issueType}
-                  onChange={(e) => setIssueType(e.target.value)}
-                >
-                  {issueTypes.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                </select>
-
-                <label htmlFor="issue-description">
-                  Describe the Issue
-                </label>
-
-                <textarea
-                  id="issue-description"
-                  rows="4"
-                  placeholder="Explain how this vehicle is causing a parking problem..."
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  required
-                />
-
-                {error && (
-                  <p className="scan-form-error" role="alert">
-                    {error}
-                  </p>
-                )}
-
-                <button
-                  type="submit"
-                  className="scan-report-button"
-                >
-                  Submit Report
-                </button>
-
-                <button
-                  type="button"
-                  className="scan-secondary-button"
-                  onClick={() => {
-                    setShowReportForm(false);
-                    setError("");
-                  }}
-                >
-                  Cancel
-                </button>
-              </form>
-            )}
-          </>
+          </div>
         )}
 
-        <Link to="/login" className="scan-login-link">
-          Login to ParkSafe
+        <p className="scan-message">
+          This vehicle is registered
+          with ParkSafe. You can notify
+          the vehicle owner without
+          exposing their personal contact
+          information.
+        </p>
+
+        <button
+          type="button"
+          className="scan-report-button"
+          onClick={() =>
+            navigate(
+              "/alerts",
+              {
+                state: {
+                  vehicle
+                }
+              }
+            )
+          }
+        >
+          Send Parking Alert
+        </button>
+
+        <Link
+          to="/vehicles/search"
+          className="scan-login-link"
+        >
+          Search Another Vehicle
         </Link>
 
         <p className="scan-footer">
-          Park Safe · Smarter Parking, Better Roads
+          ParkSafe · Smarter Parking,
+          Better Roads
         </p>
+
       </section>
+
     </main>
   );
 }
