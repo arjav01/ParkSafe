@@ -1,155 +1,135 @@
+import { useEffect, useMemo, useState } from "react";
 
-import { useState, useEffect, useRef } from "react";
+const API_URL =
+  "https://parksafe-backend-s51i.onrender.com";
 
-const API_URL = "https://parksafe-backend-s51i.onrender.com";
+const IMAGE_LIMIT = 5 * 1024 * 1024;
+const VIDEO_LIMIT = 10 * 1024 * 1024;
 
-function ReportIcon({ name, size = 22 }) {
-  const icons = {
-    file: (
-      <>
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-        <path d="M14 2v6h6M8 13h8M8 17h8" />
-      </>
-    ),
-    clock: (
-      <>
-        <circle cx="12" cy="12" r="9" />
-        <path d="M12 7v5l3 2" />
-      </>
-    ),
-    check: (
-      <>
-        <circle cx="12" cy="12" r="9" />
-        <path d="m8 12 3 3 5-6" />
-      </>
-    ),
-    close: (
-      <>
-        <circle cx="12" cy="12" r="9" />
-        <path d="m9 9 6 6m0-6-6 6" />
-      </>
-    ),
-    pin: (
-      <>
-        <path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z" />
-        <circle cx="12" cy="10" r="2.5" />
-      </>
-    ),
-    upload: (
-      <>
-        <path d="M12 16V4m-4 4 4-4 4 4" />
-        <path d="M4 16v4h16v-4" />
-      </>
-    ),
-    refresh: (
-      <>
-        <path d="M20 7v5h-5M4 17v-5h5" />
-        <path d="M5.5 9a7 7 0 0 1 12-2L20 12M4 12l2.5 5a7 7 0 0 0 12-2" />
-      </>
-    ),
-    car: (
-      <>
-        <path d="m5 11 2-5h10l2 5 2 2v5H3v-5z" />
-        <path d="M3 13h18M7 18v2m10-2v2" />
-        <circle cx="7" cy="15" r="1" />
-        <circle cx="17" cy="15" r="1" />
-      </>
-    ),
-    shield: (
-      <>
-        <path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11Z" />
-        <path d="m9 12 2 2 4-4" />
-      </>
-    )
-  };
-
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      {icons[name]}
-    </svg>
-  );
-}
-
-function formatDate(value) {
-  if (!value) return "Date unavailable";
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) return value;
-
-  return date.toLocaleString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit"
-  });
-}
-
-function getStatus(status) {
-  const normalized = String(status || "Pending").toLowerCase();
-
-  if (normalized === "approved") return "Approved";
-  if (normalized === "rejected") return "Rejected";
-
-  return "Pending";
-}
-
-function getAuthorityRemark(report) {
-  return (
-    report.remark ||
-    report.authorityRemark ||
-    report.authority_remark ||
-    ""
-  );
-}
-
-function getReportId(report) {
-  return report.reportId || report.report_id || report.id || "Report";
-}
-
-function getVehicleIcon(type) {
-  const value = String(type || "").toLowerCase();
-
-  if (value.includes("bike")) return "🏍️";
-  if (value.includes("scooter")) return "🛵";
-  if (value.includes("commercial")) return "🚚";
-
-  return "🚘";
-}
+const violationOptions = [
+  {
+    value: "Illegal Parking",
+    icon: "P",
+    label: "Illegal Parking"
+  },
+  {
+    value: "Blocking Entrance",
+    icon: "↔",
+    label: "Blocking Entrance"
+  },
+  {
+    value: "Wrong Side Parking",
+    icon: "↩",
+    label: "Wrong Side Parking"
+  },
+  {
+    value: "No Parking Zone",
+    icon: "!",
+    label: "No Parking Zone"
+  },
+  {
+    value: "Blocking Emergency Access",
+    icon: "+",
+    label: "Emergency Access"
+  },
+  {
+    value: "Other",
+    icon: "•••",
+    label: "Other"
+  }
+];
 
 export default function Reports() {
-  const [violationType, setViolationType] = useState("Illegal Parking");
-  const [description, setDescription] = useState("");
-  const [location, setLocation] = useState("");
-  const [coordinates, setCoordinates] = useState("");
-  const [file, setFile] = useState(null);
+  const [violationType, setViolationType] =
+    useState("Illegal Parking");
 
-  const [reports, setReports] = useState([]);
-  const [success, setSuccess] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [locating, setLocating] = useState(false);
+  const [description, setDescription] =
+    useState("");
 
-  const formRef = useRef(null);
-  const fileInputRef = useRef(null);
+  const [location, setLocation] =
+    useState("");
 
-  const token = localStorage.getItem("parksafeToken");
+  const [coordinates, setCoordinates] =
+    useState("");
+
+  const [file, setFile] =
+    useState(null);
+
+  const [reports, setReports] =
+    useState([]);
+
+  const [success, setSuccess] =
+    useState("");
+
+  const [error, setError] =
+    useState("");
+
+  const [loading, setLoading] =
+    useState(false);
+
+  const [submitting, setSubmitting] =
+    useState(false);
+
+  const [locating, setLocating] =
+    useState(false);
+
+  const [historyFilter, setHistoryFilter] =
+    useState("All");
+
+  const token =
+    localStorage.getItem("parksafeToken");
+
+  // ==========================================
+  // STATS
+  // ==========================================
+
+  const stats = useMemo(() => {
+    return {
+      total: reports.length,
+
+      pending: reports.filter(
+        (report) =>
+          !report.status ||
+          report.status === "Pending"
+      ).length,
+
+      approved: reports.filter(
+        (report) =>
+          report.status === "Approved"
+      ).length,
+
+      rejected: reports.filter(
+        (report) =>
+          report.status === "Rejected"
+      ).length
+    };
+  }, [reports]);
+
+  // ==========================================
+  // FILTER REPORTS
+  // ==========================================
+
+  const filteredReports = useMemo(() => {
+    if (historyFilter === "All") {
+      return reports;
+    }
+
+    return reports.filter(
+      (report) =>
+        (report.status || "Pending") ===
+        historyFilter
+    );
+  }, [reports, historyFilter]);
+
+  // ==========================================
+  // LOAD USER REPORTS
+  // ==========================================
 
   async function loadReports() {
     if (!token) {
-      setError("Please login to view your report history.");
+      setError(
+        "Please login to view your report history."
+      );
       return;
     }
 
@@ -157,21 +137,30 @@ export default function Reports() {
     setError("");
 
     try {
-      const response = await fetch(`${API_URL}/api/reports/my`, {
-        headers: {
-          Authorization: `Bearer ${token}`
+      const response = await fetch(
+        `${API_URL}/api/reports/my`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
         }
-      });
+      );
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || "Unable to load reports.");
+        throw new Error(
+          data.message ||
+          "Unable to load reports"
+        );
       }
 
       setReports(data.reports || []);
     } catch (err) {
-      setError(err.message || "Unable to load your reports.");
+      setError(
+        err.message ||
+        "Unable to load reports"
+      );
     } finally {
       setLoading(false);
     }
@@ -179,22 +168,19 @@ export default function Reports() {
 
   useEffect(() => {
     loadReports();
-    // Load the signed-in user's report history on page entry.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function scrollToForm() {
-    formRef.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "start"
-    });
-  }
+  // ==========================================
+  // GPS
+  // ==========================================
 
   function getLocation() {
     setError("");
 
     if (!navigator.geolocation) {
-      setError("Location is not supported by this browser.");
+      setError(
+        "Location is not supported by this browser."
+      );
       return;
     }
 
@@ -202,622 +188,1520 @@ export default function Reports() {
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        const coords = `${position.coords.latitude}, ${position.coords.longitude}`;
+        const coords =
+          `${position.coords.latitude.toFixed(6)}, ` +
+          `${position.coords.longitude.toFixed(6)}`;
 
         setCoordinates(coords);
         setLocation(coords);
         setLocating(false);
       },
+
       () => {
-        setError("Unable to access your location. Please allow location permission.");
+        setError(
+          "Location access was not available. Enter the location manually."
+        );
+
         setLocating(false);
       },
+
       {
         enableHighAccuracy: true,
-        timeout: 15000
+        timeout: 10000
       }
     );
   }
 
-  function handleFileChange(event) {
-    const selectedFile = event.target.files?.[0] || null;
+  // ==========================================
+  // FILE SIZE FORMAT
+  // ==========================================
 
-    if (selectedFile && selectedFile.size > 20 * 1024 * 1024) {
-      setError("Please select a file smaller than 20 MB.");
-      event.target.value = "";
+  function formatFileSize(bytes) {
+    if (!bytes) {
+      return "0 MB";
+    }
+
+    const mb =
+      bytes / (1024 * 1024);
+
+    return `${mb.toFixed(2)} MB`;
+  }
+
+  // ==========================================
+  // EVIDENCE SELECTION
+  // ==========================================
+
+  function handleEvidenceChange(e) {
+    const selected =
+      e.target.files?.[0];
+
+    setError("");
+    setSuccess("");
+
+    if (!selected) {
       setFile(null);
       return;
     }
 
-    setError("");
-    setFile(selectedFile);
+    const isImage =
+      selected.type.startsWith("image/");
+
+    const isVideo =
+      selected.type.startsWith("video/");
+
+    if (!isImage && !isVideo) {
+      setFile(null);
+
+      e.target.value = "";
+
+      setError(
+        "Only photo or video evidence is allowed."
+      );
+
+      return;
+    }
+
+    if (
+      isImage &&
+      selected.size > IMAGE_LIMIT
+    ) {
+      setFile(null);
+
+      e.target.value = "";
+
+      setError(
+        "Photo evidence must be 5 MB or smaller."
+      );
+
+      return;
+    }
+
+    if (
+      isVideo &&
+      selected.size > VIDEO_LIMIT
+    ) {
+      setFile(null);
+
+      e.target.value = "";
+
+      setError(
+        "Video evidence must be 10 MB or smaller."
+      );
+
+      return;
+    }
+
+    setFile(selected);
   }
 
-  async function submitReport(event) {
-    event.preventDefault();
+  // ==========================================
+  // REMOVE SELECTED EVIDENCE
+  // ==========================================
+
+  function removeEvidence() {
+    setFile(null);
+
+    const input =
+      document.getElementById(
+        "report-evidence-input"
+      );
+
+    if (input) {
+      input.value = "";
+    }
+  }
+
+  // ==========================================
+  // SUBMIT REPORT + ACTUAL FILE
+  // ==========================================
+
+  async function submitReport(e) {
+    e.preventDefault();
 
     setError("");
     setSuccess("");
 
     if (!token) {
-      setError("Please login before submitting a report.");
+      setError(
+        "Please login before submitting a report."
+      );
       return;
     }
 
-    if (!description.trim() || !location.trim()) {
-      setError("Please complete all required fields.");
-      return;
+    // Extra safety before upload
+    if (file) {
+      const isImage =
+        file.type.startsWith("image/");
+
+      const isVideo =
+        file.type.startsWith("video/");
+
+      if (
+        isImage &&
+        file.size > IMAGE_LIMIT
+      ) {
+        setError(
+          "Photo evidence must be 5 MB or smaller."
+        );
+        return;
+      }
+
+      if (
+        isVideo &&
+        file.size > VIDEO_LIMIT
+      ) {
+        setError(
+          "Video evidence must be 10 MB or smaller."
+        );
+        return;
+      }
     }
 
     setSubmitting(true);
 
     try {
-      const response = await fetch(`${API_URL}/api/reports`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          violationType,
-          description: description.trim(),
-          location: location.trim(),
-          coordinates,
-          fileName: file ? file.name : "No attachment"
-        })
-      });
+      // IMPORTANT:
+      // We now use FormData instead of JSON.
+      const formData =
+        new FormData();
 
-      const data = await response.json();
+      formData.append(
+        "violationType",
+        violationType
+      );
 
-      if (!response.ok) {
-        throw new Error(data.message || "Report submission failed.");
+      formData.append(
+        "description",
+        description
+      );
+
+      formData.append(
+        "location",
+        location
+      );
+
+      formData.append(
+        "coordinates",
+        coordinates || ""
+      );
+
+      if (file) {
+        // Must match:
+        // evidenceUpload.single("evidence")
+        // in server.js
+        formData.append(
+          "evidence",
+          file
+        );
       }
 
-      setSuccess(data.reportId || "Your report has been submitted.");
+      const response = await fetch(
+        `${API_URL}/api/reports`,
+        {
+          method: "POST",
+
+          headers: {
+            // DO NOT SET Content-Type HERE.
+            // Browser automatically creates
+            // multipart/form-data boundary.
+            Authorization:
+              `Bearer ${token}`
+          },
+
+          body: formData
+        }
+      );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+          "Report submission failed"
+        );
+      }
+
+      setSuccess(data.reportId);
 
       setDescription("");
       setLocation("");
       setCoordinates("");
       setFile(null);
 
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
+      const input =
+        document.getElementById(
+          "report-evidence-input"
+        );
 
-      event.target.reset();
+      if (input) {
+        input.value = "";
+      }
 
       await loadReports();
 
-      window.setTimeout(() => {
-        document.getElementById("report-success")?.scrollIntoView({
-          behavior: "smooth",
-          block: "center"
-        });
-      }, 100);
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth"
+      });
     } catch (err) {
-      setError(err.message || "Something went wrong while submitting.");
+      setError(
+        err.message ||
+        "Report submission failed"
+      );
     } finally {
       setSubmitting(false);
     }
   }
 
-  const totalReports = reports.length;
-  const pendingReports = reports.filter(
-    (report) => getStatus(report.status) === "Pending"
-  ).length;
-  const approvedReports = reports.filter(
-    (report) => getStatus(report.status) === "Approved"
-  ).length;
-  const rejectedReports = reports.filter(
-    (report) => getStatus(report.status) === "Rejected"
-  ).length;
+  // ==========================================
+  // DATE FORMAT
+  // ==========================================
+
+  function formatDate(value) {
+    if (!value) {
+      return "Not available";
+    }
+
+    const date =
+      new Date(value);
+
+    if (
+      Number.isNaN(date.getTime())
+    ) {
+      return value;
+    }
+
+    return date.toLocaleString(
+      "en-IN",
+      {
+        dateStyle: "medium",
+        timeStyle: "short"
+      }
+    );
+  }
+
+  // ==========================================
+  // STATUS
+  // ==========================================
+
+  function statusClass(status) {
+    if (status === "Approved") {
+      return "approved";
+    }
+
+    if (status === "Rejected") {
+      return "rejected";
+    }
+
+    return "pending";
+  }
+
+  function statusIcon(status) {
+    if (status === "Approved") {
+      return "✓";
+    }
+
+    if (status === "Rejected") {
+      return "×";
+    }
+
+    return "◷";
+  }
+
+  // ==========================================
+  // EVIDENCE TYPE
+  // ==========================================
+
+  function evidenceLabel(report) {
+    if (!report.evidenceType) {
+      return "No evidence";
+    }
+
+    if (
+      report.evidenceType.startsWith(
+        "image/"
+      )
+    ) {
+      return "Photo Evidence";
+    }
+
+    if (
+      report.evidenceType.startsWith(
+        "video/"
+      )
+    ) {
+      return "Video Evidence";
+    }
+
+    return "Evidence";
+  }
 
   return (
-    <div className="reports-page">
+    <div className="premium-reports-page">
 
-      {/* PAGE HEADER */}
-      <section className="reports-heading">
+      {/* AMBIENT BACKGROUND */}
+
+      <div
+        className="reports-ambient"
+        aria-hidden="true"
+      >
+        <span className="reports-orb reports-orb-one" />
+        <span className="reports-orb reports-orb-two" />
+
+        <span className="reports-particle reports-particle-one" />
+        <span className="reports-particle reports-particle-two" />
+        <span className="reports-particle reports-particle-three" />
+      </div>
+
+      {/* ======================================
+          HEADER
+      ====================================== */}
+
+      <section className="reports-header">
+
         <div>
-          <span className="eyebrow">PARKSAFE • REPORTING CENTRE</span>
-          <h1>My Reports<span className="reports-title-dot">.</span></h1>
-          <p className="subtitle">
-            Report parking violations, submit evidence and follow every
-            decision made by the authority.
-          </p>
-        </div>
 
-        <button
-          type="button"
-          className="primary-button reports-new-button"
-          onClick={scrollToForm}
-        >
-          <span>＋</span> New Report
-        </button>
-      </section>
+          <div className="reports-network-pill">
+            <span />
+            PARKSAFE REPORT NETWORK
+          </div>
 
-      {/* HERO */}
-      <section className="reports-hero">
-        <div className="reports-hero-content">
-          <span className="reports-hero-label">
-            <span className="reports-live-dot"></span>
-            PARKSAFE REPORTING SYSTEM
+          <span className="eyebrow">
+            REPORTING SYSTEM
           </span>
 
+          <h1>
+            Report responsibly.{" "}
+            <span>
+              Track transparently.
+            </span>
+          </h1>
+
+          <p>
+            Submit unresolved parking
+            violations with location and
+            real photo or video evidence,
+            then follow their review status.
+          </p>
+
+        </div>
+
+        <div className="reports-header-status">
+
+          <div className="reports-header-icon">
+            ⚑
+          </div>
+
+          <div>
+            <small>
+              YOUR REPORTS
+            </small>
+
+            <strong>
+              {reports.length}{" "}
+              {reports.length === 1
+                ? "Report"
+                : "Reports"}
+            </strong>
+          </div>
+
+          <span className="reports-online-dot" />
+
+        </div>
+
+      </section>
+
+      {/* ======================================
+          HERO
+      ====================================== */}
+
+      <section className="reports-hero">
+
+        <div className="reports-hero-copy">
+
+          <div className="reports-hero-label">
+            <span />
+            RESPONSIBLE ESCALATION
+          </div>
+
           <h2>
-            Help keep every
+            Evidence-backed
             <br />
-            parking space <span>accessible.</span>
+
+            <span>
+              parking reports.
+            </span>
           </h2>
 
           <p>
-            Submit a parking concern with clear details and supporting
-            evidence. Your report can then be reviewed by the authorised
-            ParkSafe team.
+            When a parking issue remains
+            unresolved, submit clear
+            information together with
+            photo or video evidence.
           </p>
 
-          <button
-            type="button"
-            className="reports-hero-button"
-            onClick={scrollToForm}
-          >
-            Submit a Report <span>→</span>
-          </button>
+          <div className="reports-hero-features">
 
-          <div className="reports-hero-note">
-            <ReportIcon name="shield" size={17} />
-            Responsible reporting. Transparent review.
+            <div>
+              <span>✓</span>
+              Private evidence storage
+            </div>
+
+            <div>
+              <span>✓</span>
+              GPS support
+            </div>
+
+            <div>
+              <span>✓</span>
+              Authority review
+            </div>
+
           </div>
+
         </div>
 
-        <div className="reports-hero-visual" aria-hidden="true">
-          <div className="reports-orbit reports-orbit-one"></div>
-          <div className="reports-orbit reports-orbit-two"></div>
-          <div className="reports-orbit reports-orbit-three"></div>
+        <div className="reports-hero-visual">
 
-          <div className="reports-hero-car">🚘</div>
+          <span className="report-radar-ring report-ring-one" />
+          <span className="report-radar-ring report-ring-two" />
+          <span className="report-radar-ring report-ring-three" />
 
-          <div className="reports-floating-card reports-floating-top">
-            <span className="reports-floating-icon">
-              <ReportIcon name="file" size={20} />
+          <div className="report-document">
+
+            <div className="report-document-top">
+
+              <span>P</span>
+
+              <div>
+                <small>
+                  PARKSAFE
+                </small>
+
+                <strong>
+                  Violation Report
+                </strong>
+              </div>
+
+            </div>
+
+            <div className="report-document-line long" />
+            <div className="report-document-line medium" />
+            <div className="report-document-line short" />
+
+            <div className="report-document-status">
+              <span />
+              Evidence Ready
+            </div>
+
+          </div>
+
+          <div className="report-floating-card report-float-one">
+
+            <span className="report-float-icon purple">
+              ◉
             </span>
+
             <div>
-              <strong>Report received</strong>
-              <small>Case submitted to ParkSafe</small>
+              <small>
+                LOCATION
+              </small>
+
+              <strong>
+                GPS Supported
+              </strong>
             </div>
+
           </div>
 
-          <div className="reports-floating-card reports-floating-bottom">
-            <span className="reports-floating-check">✓</span>
+          <div className="report-floating-card report-float-two">
+
+            <span className="report-float-icon green">
+              ✓
+            </span>
+
             <div>
-              <strong>Transparent review</strong>
-              <small>Track your report status</small>
+              <small>
+                EVIDENCE
+              </small>
+
+              <strong>
+                Secure Storage
+              </strong>
             </div>
+
           </div>
+
         </div>
+
       </section>
 
-      {/* REPORT STATISTICS */}
-      <section className="reports-stats">
-        <article className="reports-stat-card">
-          <div className="reports-stat-icon stat-total">
-            <ReportIcon name="file" />
-          </div>
-          <div>
-            <span>Total Reports</span>
-            <strong>{totalReports}</strong>
-            <small>All submitted cases</small>
-          </div>
-        </article>
+      {/* ======================================
+          STATS
+      ====================================== */}
 
-        <article className="reports-stat-card">
-          <div className="reports-stat-icon stat-pending">
-            <ReportIcon name="clock" />
-          </div>
-          <div>
-            <span>Pending</span>
-            <strong>{pendingReports}</strong>
-            <small>Awaiting review</small>
-          </div>
-        </article>
+      <section className="reports-stats-grid">
 
-        <article className="reports-stat-card">
-          <div className="reports-stat-icon stat-approved">
-            <ReportIcon name="check" />
+        <div className="report-stat-card report-stat-total">
+          <div className="report-stat-icon">
+            ▤
           </div>
-          <div>
-            <span>Approved</span>
-            <strong>{approvedReports}</strong>
-            <small>Verified reports</small>
-          </div>
-        </article>
 
-        <article className="reports-stat-card">
-          <div className="reports-stat-icon stat-rejected">
-            <ReportIcon name="close" />
-          </div>
           <div>
-            <span>Rejected</span>
-            <strong>{rejectedReports}</strong>
-            <small>Not approved</small>
+            <span>
+              TOTAL REPORTS
+            </span>
+            <strong>
+              {stats.total}
+            </strong>
+            <small>
+              Submitted by you
+            </small>
           </div>
-        </article>
+        </div>
+
+        <div className="report-stat-card report-stat-pending">
+          <div className="report-stat-icon">
+            ◷
+          </div>
+
+          <div>
+            <span>
+              PENDING
+            </span>
+            <strong>
+              {stats.pending}
+            </strong>
+            <small>
+              Awaiting review
+            </small>
+          </div>
+        </div>
+
+        <div className="report-stat-card report-stat-approved">
+          <div className="report-stat-icon">
+            ✓
+          </div>
+
+          <div>
+            <span>
+              APPROVED
+            </span>
+            <strong>
+              {stats.approved}
+            </strong>
+            <small>
+              Accepted reports
+            </small>
+          </div>
+        </div>
+
+        <div className="report-stat-card report-stat-rejected">
+          <div className="report-stat-icon">
+            ×
+          </div>
+
+          <div>
+            <span>
+              REJECTED
+            </span>
+            <strong>
+              {stats.rejected}
+            </strong>
+            <small>
+              Closed reports
+            </small>
+          </div>
+        </div>
+
       </section>
 
       {/* ERROR */}
+
       {error && (
-        <div className="reports-alert reports-error" role="alert">
-          <span>!</span>
-          <p>{error}</p>
-          <button type="button" onClick={() => setError("")} aria-label="Dismiss error">
-            ×
-          </button>
+        <div className="premium-report-error">
+
+          <div>!</div>
+
+          <div>
+            <strong>
+              Something needs attention
+            </strong>
+
+            <p>{error}</p>
+          </div>
+
         </div>
       )}
 
       {/* SUCCESS */}
+
       {success && (
-        <div
-          id="report-success"
-          className="reports-success-panel"
-          role="status"
-        >
-          <div className="reports-success-icon">✓</div>
-          <div>
-            <span>SUBMISSION COMPLETE</span>
-            <h3>Your report has been submitted!</h3>
-            <p>
-              Keep this reference number to track your case:
-            </p>
-            <strong className="reports-success-id">{success}</strong>
+        <section className="report-success-card">
+
+          <div className="report-success-animation">
+
+            <span className="report-success-ring success-ring-one" />
+            <span className="report-success-ring success-ring-two" />
+
+            <div>✓</div>
+
           </div>
-          <button
-            type="button"
-            onClick={() => setSuccess("")}
-            aria-label="Dismiss success message"
-          >
-            ×
-          </button>
-        </div>
+
+          <div className="report-success-copy">
+
+            <span>
+              REPORT SUBMITTED
+            </span>
+
+            <h2>
+              Report and evidence submitted
+            </h2>
+
+            <p>
+              Your report has been added
+              to the ParkSafe authority
+              review queue.
+            </p>
+
+            <div className="report-success-id">
+
+              <small>
+                REPORT ID
+              </small>
+
+              <strong>
+                {success}
+              </strong>
+
+            </div>
+
+          </div>
+
+        </section>
       )}
 
-      {/* REPORT FORM */}
-      <section className="reports-form-section" ref={formRef}>
-        <div className="reports-section-heading">
-          <div className="reports-section-icon">
-            <ReportIcon name="file" size={24} />
+      {/* ======================================
+          REPORT FORM
+      ====================================== */}
+
+      <section className="premium-report-form-card">
+
+        <div className="report-form-heading">
+
+          <div className="report-form-icon">
+            ⚑
           </div>
+
           <div>
-            <span className="eyebrow">NEW CASE</span>
-            <h2>Submit a Violation Report</h2>
-            <p>Provide accurate details to help the authority review your report.</p>
+
+            <span className="eyebrow">
+              NEW REPORT
+            </span>
+
+            <h2>
+              Submit Violation Report
+            </h2>
+
+            <p>
+              Provide clear information
+              and supporting evidence.
+            </p>
+
           </div>
+
+          <span className="report-form-ready">
+            <span />
+            READY
+          </span>
+
         </div>
 
-        <form className="reports-form" onSubmit={submitReport}>
-          <div className="reports-form-grid">
-            <div className="reports-field reports-field-full">
-              <label htmlFor="violation-type">Violation Category</label>
-              <select
-                id="violation-type"
-                value={violationType}
-                onChange={(e) => setViolationType(e.target.value)}
-              >
-                <option>Illegal Parking</option>
-                <option>Blocking Entrance</option>
-                <option>Wrong Side Parking</option>
-                <option>No Parking Zone</option>
-                <option>Blocking Emergency Access</option>
-                <option>Other</option>
-              </select>
-              <small>Select the category that best describes the issue.</small>
+        <form
+          onSubmit={submitReport}
+          className="premium-report-form"
+        >
+
+          {/* VIOLATION */}
+
+          <div className="report-form-section">
+
+            <div className="report-form-section-title">
+
+              <span>01</span>
+
+              <div>
+                <strong>
+                  Violation Type
+                </strong>
+
+                <small>
+                  Select the parking issue
+                </small>
+              </div>
+
             </div>
 
-            <div className="reports-field reports-field-full">
-              <label htmlFor="report-description">Incident Description</label>
+            <div className="violation-option-grid">
+
+              {violationOptions.map(
+                (option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    className={
+                      violationType ===
+                      option.value
+                        ? "violation-option active"
+                        : "violation-option"
+                    }
+                    onClick={() =>
+                      setViolationType(
+                        option.value
+                      )
+                    }
+                  >
+
+                    <span className="violation-option-icon">
+                      {option.icon}
+                    </span>
+
+                    <span>
+                      {option.label}
+                    </span>
+
+                    {violationType ===
+                      option.value && (
+                      <strong>✓</strong>
+                    )}
+
+                  </button>
+                )
+              )}
+
+            </div>
+
+          </div>
+
+          {/* DESCRIPTION */}
+
+          <div className="report-form-section">
+
+            <div className="report-form-section-title">
+
+              <span>02</span>
+
+              <div>
+                <strong>
+                  Description
+                </strong>
+
+                <small>
+                  Explain what happened
+                </small>
+              </div>
+
+            </div>
+
+            <div className="premium-report-textarea">
+
               <textarea
-                id="report-description"
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Describe what happened, how the vehicle is causing an obstruction, and any other relevant details..."
-                rows={5}
-                maxLength={1000}
+                onChange={(e) =>
+                  setDescription(
+                    e.target.value
+                  )
+                }
+                placeholder="Describe the parking violation clearly..."
+                rows="5"
+                maxLength={500}
                 required
               />
-              <div className="reports-field-footer">
-                <small>Keep the description clear and factual.</small>
-                <small>{description.length}/1000</small>
-              </div>
+
+              <span>
+                {description.length}/500
+              </span>
+
             </div>
 
-            <div className="reports-field reports-field-full">
-              <label htmlFor="report-location">Incident Location</label>
-              <div className="reports-location-input">
-                <ReportIcon name="pin" size={19} />
+          </div>
+
+          {/* LOCATION */}
+
+          <div className="report-form-section">
+
+            <div className="report-form-section-title">
+
+              <span>03</span>
+
+              <div>
+                <strong>
+                  Location
+                </strong>
+
+                <small>
+                  Enter manually or use GPS
+                </small>
+              </div>
+
+            </div>
+
+            <div className="report-location-row">
+
+              <div className="report-location-input">
+
+                <span>◉</span>
+
                 <input
-                  id="report-location"
                   value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  placeholder="Enter the location of the parking violation"
+                  onChange={(e) =>
+                    setLocation(
+                      e.target.value
+                    )
+                  }
+                  placeholder="Enter parking location"
                   required
                 />
+
               </div>
 
               <button
                 type="button"
-                className="reports-gps-button"
+                className={
+                  locating
+                    ? "report-gps-button locating"
+                    : "report-gps-button"
+                }
                 onClick={getLocation}
                 disabled={locating}
               >
-                <ReportIcon name="pin" size={17} />
-                {locating ? "Detecting your location..." : "Use my current GPS location"}
+
+                {locating ? (
+                  <>
+                    <span className="report-gps-loader" />
+                    Locating...
+                  </>
+                ) : (
+                  <>
+                    <span>◎</span>
+                    Use Current GPS
+                  </>
+                )}
+
               </button>
 
-              {coordinates && (
-                <div className="reports-gps-confirmation">
-                  <span>✓</span>
-                  GPS coordinates captured: {coordinates}
-                </div>
-              )}
             </div>
 
-            <div className="reports-field reports-field-full">
-              <label>Photo / Video Evidence</label>
+            {coordinates && (
+              <div className="report-coordinate-box">
 
-              <label className="reports-upload-area" htmlFor="report-evidence">
-                <input
-                  ref={fileInputRef}
-                  id="report-evidence"
-                  type="file"
-                  accept="image/*,video/*"
-                  onChange={handleFileChange}
-                />
-
-                <span className="reports-upload-icon">
-                  <ReportIcon name="upload" size={25} />
+                <span className="coordinate-live">
+                  <span />
+                  GPS CAPTURED
                 </span>
 
                 <strong>
-                  {file ? "Evidence selected" : "Choose your evidence file"}
+                  {coordinates}
                 </strong>
 
-                <span>
-                  {file
-                    ? file.name
-                    : "Select a photo or video from your device (maximum 20 MB)."}
-                </span>
+              </div>
+            )}
 
-                <small>Supported formats depend on your device and browser.</small>
-              </label>
+          </div>
 
-              {file && (
-                <div className="reports-file-selected">
-                  <span className="reports-file-icon">
-                    {file.type.startsWith("video/") ? "▶" : "▧"}
-                  </span>
-                  <div>
-                    <strong>{file.name}</strong>
-                    <small>{(file.size / (1024 * 1024)).toFixed(2)} MB</small>
+          {/* ==================================
+              ACTUAL EVIDENCE
+          ================================== */}
+
+          <div className="report-form-section">
+
+            <div className="report-form-section-title">
+
+              <span>04</span>
+
+              <div>
+                <strong>
+                  Evidence
+                </strong>
+
+                <small>
+                  Upload supporting photo
+                  or video
+                </small>
+              </div>
+
+            </div>
+
+            <label className="premium-evidence-upload">
+
+              <input
+                id="report-evidence-input"
+                type="file"
+                accept="image/*,video/*"
+                onChange={
+                  handleEvidenceChange
+                }
+              />
+
+              {!file ? (
+                <>
+                  <div className="evidence-upload-animation">
+
+                    <span className="upload-ring upload-ring-one" />
+                    <span className="upload-ring upload-ring-two" />
+
+                    <div>↑</div>
+
                   </div>
+
+                  <strong>
+                    Upload Photo or Video Evidence
+                  </strong>
+
+                  <p>
+                    Select supporting evidence
+                    from your device.
+                  </p>
+
+                  <div className="report-evidence-limits">
+
+                    <span>
+                      🖼 Photo
+                      <strong>
+                        Max 5 MB
+                      </strong>
+                    </span>
+
+                    <span>
+                      🎥 Video
+                      <strong>
+                        Max 10 MB
+                      </strong>
+                    </span>
+
+                  </div>
+
+                  <span className="evidence-upload-button">
+                    Choose Evidence
+                  </span>
+                </>
+              ) : (
+                <div className="evidence-selected">
+
+                  <div className="evidence-selected-icon">
+                    {file.type.startsWith(
+                      "video/"
+                    )
+                      ? "▶"
+                      : "✓"}
+                  </div>
+
+                  <div>
+
+                    <span>
+                      {file.type.startsWith(
+                        "video/"
+                      )
+                        ? "VIDEO EVIDENCE"
+                        : "PHOTO EVIDENCE"}
+                    </span>
+
+                    <strong>
+                      {file.name}
+                    </strong>
+
+                    <small>
+                      {formatFileSize(
+                        file.size
+                      )}{" "}
+                      • {file.type}
+                    </small>
+
+                  </div>
+
                   <button
                     type="button"
-                    onClick={() => {
-                      setFile(null);
-                      if (fileInputRef.current) fileInputRef.current.value = "";
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      removeEvidence();
                     }}
+                    aria-label="Remove evidence"
                   >
-                    Remove
+                    ×
                   </button>
+
                 </div>
               )}
 
-              <p className="reports-evidence-note">
-                Evidence filename is currently recorded with the report.
-                Actual photo/video uploading is not yet connected to the backend.
+            </label>
+
+            <div className="report-evidence-security">
+
+              <span>🔒</span>
+
+              <p>
+                Evidence is stored privately
+                and made available to
+                authorized ParkSafe reviewers.
               </p>
+
             </div>
+
           </div>
 
-          <div className="reports-form-bottom">
-            <div className="reports-form-assurance">
-              <ReportIcon name="shield" size={19} />
-              <span>Review your details before submitting.</span>
+          {/* SUBMIT */}
+
+          <div className="report-submit-area">
+
+            <div className="report-submit-note">
+
+              <span>✓</span>
+
+              <p>
+                Submit only genuine parking
+                issues with relevant evidence.
+              </p>
+
             </div>
 
             <button
-              className="primary-button reports-submit-button"
+              className={
+                submitting
+                  ? "premium-report-submit submitting"
+                  : "premium-report-submit"
+              }
               type="submit"
               disabled={submitting}
             >
+
               {submitting ? (
                 <>
-                  <span className="reports-spinner"></span>
-                  Submitting Report...
+                  <span className="report-submit-loader" />
+                  Uploading & Submitting...
                 </>
               ) : (
                 <>
-                  Submit Violation Report <span>→</span>
+                  <span className="report-submit-icon">
+                    ⚑
+                  </span>
+
+                  Submit Violation Report
+
+                  <strong>→</strong>
                 </>
               )}
+
             </button>
+
           </div>
+
         </form>
+
       </section>
 
-      {/* REPORT HISTORY */}
-      <section className="reports-history-section">
-        <div className="reports-history-heading">
+      {/* ======================================
+          HISTORY
+      ====================================== */}
+
+      <section className="premium-report-history">
+
+        <div className="report-history-heading">
+
           <div>
-            <span className="eyebrow">YOUR CASES</span>
-            <h2>Report History</h2>
-            <p>Follow the progress and decisions for your submitted reports.</p>
+
+            <span className="eyebrow">
+              REPORT TRACKING
+            </span>
+
+            <h2>
+              My Report History
+            </h2>
+
+            <p>
+              Follow your reports and
+              submitted evidence.
+            </p>
+
           </div>
 
           <button
             type="button"
-            className="reports-refresh-button"
+            className={
+              loading
+                ? "report-refresh-button loading"
+                : "report-refresh-button"
+            }
             onClick={loadReports}
             disabled={loading}
           >
-            <ReportIcon name="refresh" size={17} />
-            {loading ? "Refreshing..." : "Refresh"}
+            <span>↻</span>
+
+            {loading
+              ? "Refreshing..."
+              : "Refresh History"}
           </button>
+
         </div>
 
-        {loading && reports.length === 0 && (
-          <div className="reports-loading">
-            <span className="reports-spinner"></span>
-            Loading your report history...
-          </div>
-        )}
+        {/* FILTERS */}
 
-        {!loading && reports.length === 0 && !error && (
-          <div className="reports-empty-state">
-            <div className="reports-empty-icon">
-              <ReportIcon name="file" size={34} />
+        <div className="report-history-filters">
+
+          {[
+            "All",
+            "Pending",
+            "Approved",
+            "Rejected"
+          ].map(
+            (filter) => (
+              <button
+                type="button"
+                key={filter}
+                className={
+                  historyFilter === filter
+                    ? `report-filter active ${filter.toLowerCase()}`
+                    : "report-filter"
+                }
+                onClick={() =>
+                  setHistoryFilter(
+                    filter
+                  )
+                }
+              >
+
+                {filter}
+
+                <span>
+                  {filter === "All"
+                    ? stats.total
+                    : filter === "Pending"
+                    ? stats.pending
+                    : filter === "Approved"
+                    ? stats.approved
+                    : stats.rejected}
+                </span>
+
+              </button>
+            )
+          )}
+
+        </div>
+
+        {/* LOADING */}
+
+        {loading &&
+          reports.length === 0 && (
+          <div className="report-history-loading">
+
+            <div className="history-loader-radar">
+
+              <span className="history-loader-ring ring-one" />
+              <span className="history-loader-ring ring-two" />
+
+              <div>↻</div>
+
             </div>
-            <h3>No reports submitted yet</h3>
+
+            <h3>
+              Loading your reports
+            </h3>
+
             <p>
-              When you submit a parking violation, its case details and
-              review status will appear here.
+              Syncing with ParkSafe...
             </p>
-            <button
-              type="button"
-              className="primary-button"
-              onClick={scrollToForm}
-            >
-              Create your first report →
-            </button>
+
           </div>
         )}
 
-        {reports.length > 0 && (
-          <div className="reports-history-list">
-            {reports.map((report, index) => {
-              const status = getStatus(report.status);
-              const authorityRemark = getAuthorityRemark(report);
-              const reportId = getReportId(report);
+        {/* EMPTY */}
 
-              return (
-                <article
-                  className={`report-record report-record-${status.toLowerCase()}`}
-                  key={reportId}
-                >
-                  <div className="report-record-top">
-                    <div className="report-record-reference">
-                      <span className="report-record-icon">
-                        <ReportIcon name="file" size={21} />
-                      </span>
-                      <div>
-                        <span>CASE REFERENCE</span>
-                        <strong>{reportId}</strong>
-                      </div>
-                    </div>
+        {!loading &&
+          filteredReports.length === 0 &&
+          !error && (
+          <div className="report-history-empty">
 
-                    <span className={`report-status-badge status-${status.toLowerCase()}`}>
-                      <span></span>
-                      {status}
-                    </span>
-                  </div>
+            <div className="history-empty-animation">
 
-                  <div className="report-record-main">
-                    <div className="report-record-title">
-                      <h3>{report.violationType || "Parking Violation"}</h3>
-                      <p>{report.description || "No description provided."}</p>
-                    </div>
+              <span className="history-empty-ring empty-one" />
+              <span className="history-empty-ring empty-two" />
 
-                    <div className="report-record-details">
-                      <div>
-                        <span>SUBMITTED ON</span>
-                        <strong>{formatDate(report.submittedAt || report.submitted_at)}</strong>
-                      </div>
-                      <div>
-                        <span>LOCATION</span>
-                        <strong>{report.location || "Not provided"}</strong>
-                      </div>
-                      <div>
-                        <span>EVIDENCE</span>
-                        <strong>{report.fileName || report.file_name || "No attachment"}</strong>
-                      </div>
-                    </div>
+              <div>⚑</div>
 
-                    {report.coordinates && (
-                      <div className="report-gps-detail">
-                        <ReportIcon name="pin" size={16} />
-                        GPS: {report.coordinates}
-                      </div>
-                    )}
-                  </div>
+            </div>
 
-                  {/* AUTHORITY DECISION */}
-                  {status === "Pending" && (
-                    <div className="report-review-message review-pending">
-                      <span className="report-review-icon">
-                        <ReportIcon name="clock" size={20} />
-                      </span>
-                      <div>
-                        <strong>Awaiting authority review</strong>
-                        <p>
-                          Your report has been submitted and is waiting
-                          for the authority's decision.
-                        </p>
-                      </div>
-                    </div>
-                  )}
+            <h3>
+              {historyFilter === "All"
+                ? "No Reports Yet"
+                : `No ${historyFilter} Reports`}
+            </h3>
 
-                  {(status === "Approved" || status === "Rejected") && (
-                    <div className={`report-authority-decision decision-${status.toLowerCase()}`}>
-                      <div className="report-decision-heading">
-                        <span className="report-decision-icon">
-                          {status === "Approved" ? (
-                            <ReportIcon name="check" size={20} />
-                          ) : (
-                            <ReportIcon name="close" size={20} />
+            <p>
+              {historyFilter === "All"
+                ? "Your submitted violation reports will appear here."
+                : `You currently have no ${historyFilter.toLowerCase()} reports.`}
+            </p>
+
+          </div>
+        )}
+
+        {/* REPORT LIST */}
+
+        {filteredReports.length > 0 && (
+          <div className="premium-report-list">
+
+            {filteredReports.map(
+              (report, index) => {
+                const status =
+                  report.status ||
+                  "Pending";
+
+                const state =
+                  statusClass(
+                    status
+                  );
+
+                return (
+                  <article
+                    className={`premium-history-card ${state}`}
+                    key={
+                      report.reportId
+                    }
+                    style={{
+                      "--report-delay":
+                        `${index * 0.08}s`
+                    }}
+                  >
+
+                    <div className="history-card-status-line" />
+
+                    <div className="history-card-top">
+
+                      <div className="history-card-id">
+
+                        <div
+                          className={`history-status-icon ${state}`}
+                        >
+                          {statusIcon(
+                            status
                           )}
-                        </span>
+                        </div>
+
                         <div>
-                          <span>OFFICIAL REVIEW DECISION</span>
+                          <span>
+                            REPORT ID
+                          </span>
+
                           <strong>
-                            {status === "Approved"
-                              ? "Report Approved"
-                              : "Report Rejected"}
+                            {report.reportId}
+                          </strong>
+                        </div>
+
+                      </div>
+
+                      <span
+                        className={`premium-report-status ${state}`}
+                      >
+                        <span />
+                        {status}
+                      </span>
+
+                    </div>
+
+                    <div className="history-violation">
+
+                      <span>
+                        VIOLATION
+                      </span>
+
+                      <h3>
+                        {report.violationType}
+                      </h3>
+
+                      <p>
+                        {report.description}
+                      </p>
+
+                    </div>
+
+                    <div className="history-detail-grid">
+
+                      <div>
+                        <span className="history-detail-icon">
+                          ◉
+                        </span>
+
+                        <div>
+                          <small>
+                            LOCATION
+                          </small>
+
+                          <strong>
+                            {report.location}
                           </strong>
                         </div>
                       </div>
 
-                      <div className="report-authority-remark">
-                        <strong>Authority's Remark</strong>
-                        <p>
-                          {authorityRemark ||
-                            "No remark was provided by the authority."}
-                        </p>
-                      </div>
-                    </div>
-                  )}
+                      <div>
+                        <span className="history-detail-icon">
+                          ◷
+                        </span>
 
-                  <div className="report-record-footer">
-                    <span>
-                      {getVehicleIcon(report.vehicleType)} ParkSafe Case
-                    </span>
-                    <span>Record {index + 1}</span>
-                  </div>
-                </article>
-              );
-            })}
+                        <div>
+                          <small>
+                            SUBMITTED
+                          </small>
+
+                          <strong>
+                            {formatDate(
+                              report.submittedAt
+                            )}
+                          </strong>
+                        </div>
+                      </div>
+
+                      <div>
+                        <span className="history-detail-icon">
+                          ▣
+                        </span>
+
+                        <div>
+                          <small>
+                            EVIDENCE
+                          </small>
+
+                          <strong>
+                            {report.fileName ||
+                              "No attachment"}
+                          </strong>
+                        </div>
+                      </div>
+
+                      {report.coordinates && (
+                        <div>
+                          <span className="history-detail-icon">
+                            ◎
+                          </span>
+
+                          <div>
+                            <small>
+                              GPS
+                            </small>
+
+                            <strong>
+                              {report.coordinates}
+                            </strong>
+                          </div>
+                        </div>
+                      )}
+
+                    </div>
+
+                    {/* EVIDENCE VIEW */}
+
+                    {report.evidenceUrl && (
+                      <div className="user-report-evidence">
+
+                        <div>
+
+                          <span>
+                            {report.evidenceType?.startsWith(
+                              "video/"
+                            )
+                              ? "🎥"
+                              : "🖼"}
+                          </span>
+
+                          <div>
+                            <small>
+                              SECURE EVIDENCE
+                            </small>
+
+                            <strong>
+                              {evidenceLabel(
+                                report
+                              )}
+                            </strong>
+
+                            {report.evidenceSize && (
+                              <span>
+                                {formatFileSize(
+                                  Number(
+                                    report.evidenceSize
+                                  )
+                                )}
+                              </span>
+                            )}
+                          </div>
+
+                        </div>
+
+                        <a
+                          href={
+                            report.evidenceUrl
+                          }
+                          target="_blank"
+                          rel="noreferrer"
+                          className="user-evidence-view-button"
+                        >
+                          View Evidence →
+                        </a>
+
+                      </div>
+                    )}
+
+                    <div className="history-card-footer">
+
+                      <span>
+                        {state === "approved"
+                          ? "✓ Report approved by authority"
+                          : state === "rejected"
+                          ? "× Report review completed"
+                          : "◷ Waiting for authority review"}
+                      </span>
+
+                    </div>
+
+                  </article>
+                );
+              }
+            )}
+
           </div>
         )}
+
       </section>
 
-      {/* FOOTER NOTE */}
-      <div className="reports-footer-note">
-        <span><ReportIcon name="shield" size={19} /></span>
-        <div>
-          <strong>Responsible reporting matters</strong>
-          <p>
-            Please provide accurate information and genuine evidence.
-            Reports are subject to review by the authorised ParkSafe team.
-          </p>
+      {/* BOTTOM NOTE */}
+
+      <section className="reports-bottom-note">
+
+        <div className="reports-bottom-icon">
+          i
         </div>
-      </div>
+
+        <div>
+
+          <span>
+            RESPONSIBLE REPORTING
+          </span>
+
+          <h3>
+            Accurate evidence helps
+            authorities review reports.
+          </h3>
+
+          <p>
+            Upload only relevant photos
+            or videos that clearly document
+            the parking issue.
+          </p>
+
+        </div>
+
+      </section>
+
     </div>
   );
 }
