@@ -2104,8 +2104,18 @@ app.post(
               .originalname
           );
 
-        evidencePath =
-          `reports/${req.user.userId}/${reportId}/${Date.now()}-${cleanedName}`;
+        const fileExtension =
+        cleanedName.includes(".")
+        ? cleanedName.split(".").pop()
+        : req.file.mimetype.startsWith("video/")
+        ? "mp4"
+        : "jpg";
+
+const storageFileName =
+  `${Date.now()}-${crypto.randomBytes(8).toString("hex")}.${fileExtension}`;
+
+evidencePath =
+  `user-${req.user.userId}/${storageFileName}`;
 
         const {
           error:
