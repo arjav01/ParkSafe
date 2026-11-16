@@ -81,14 +81,36 @@ export default function VehicleSearch() {
 
       const v = data.vehicle;
 
-      setVehicle({
-        vehicleNumber: v.vehicle_number,
-        vehicleType: v.vehicle_type,
-        vehicleModel: v.vehicle_model,
-        ownerReference: v.owner_reference,
-        status: v.status,
-        id: v.id
-      });
+setVehicle({
+  id:
+    v.id ??
+    v.vehicleId ??
+    null,
+
+  vehicleNumber:
+    v.vehicleNumber ??
+    v.vehicle_number ??
+    cleanNumber,
+
+  vehicleType:
+    v.vehicleType ??
+    v.vehicle_type ??
+    "Vehicle",
+
+  vehicleModel:
+    v.vehicleModel ??
+    v.vehicle_model ??
+    "Not specified",
+
+  ownerReference:
+    v.ownerReference ??
+    v.owner_reference ??
+    "Not available",
+
+  status:
+    v.status ??
+    "Active"
+});
 
     } catch (err) {
       setError(
