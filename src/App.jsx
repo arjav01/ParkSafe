@@ -1,3 +1,4 @@
+import About from "./pages/About";
 import { useEffect, useRef, useState } from "react";
 import {
   BrowserRouter,
@@ -2716,6 +2717,7 @@ function AppContent() {
           />
 
           {/* DYNAMIC PROFILE */}
+          
 
           <Route
             path="/profile"
@@ -2746,6 +2748,11 @@ function AppContent() {
               />
             }
           />
+
+          <Route
+  path="/about"
+  element={<About />}
+/>
 
         </Routes>
 
