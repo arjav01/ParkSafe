@@ -4,10 +4,10 @@ import {
   useState
 } from "react";
 
-import arjavPhoto from "../assets/team/arjav.jpeg";
-import nihitaPhoto from "../assets/team/nihita.png";
-import gauranshPhoto from "../assets/team/gauransh.png";
-import namanPhoto from "../assets/team/naman.png";
+import arjavPhoto from "../assets/team/arjav.webp";
+import nihitaPhoto from "../assets/team/nihita.webp";
+import gauranshPhoto from "../assets/team/gauransh.webp";
+import namanPhoto from "../assets/team/naman.webp";
 
 /* =========================================================
    TEAM DATA
@@ -445,9 +445,11 @@ export default function About() {
                   <div className="about-member-image">
 
                     <img
-                      src={member.photo}
-                      alt={member.name}
-                    />
+  src={member.photo}
+  alt={member.name}
+  loading="lazy"
+  decoding="async"
+/>
 
                     <div className="about-member-image-overlay" />
 
